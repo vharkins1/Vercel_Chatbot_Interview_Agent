@@ -1,6 +1,10 @@
-import { customProvider, gateway } from "ai";
+import { customProvider } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { isTestEnvironment } from "../constants";
-import { titleModel } from "./models";
+
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export const myProvider = isTestEnvironment
   ? (() => {
@@ -19,12 +23,17 @@ export function getLanguageModel(modelId: string) {
     return myProvider.languageModel(modelId);
   }
 
-  return gateway.languageModel(modelId);
+  // Map gateway-style model IDs to OpenAI model IDs
+  const openAiModel = modelId.includes("/")
+    ? modelId.split("/").pop()!
+    : modelId;
+
+  return openai(openAiModel);
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return gateway.languageModel(titleModel.id);
+  return openai("gpt-4o-mini");
 }

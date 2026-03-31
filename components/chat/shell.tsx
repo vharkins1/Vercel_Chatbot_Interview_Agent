@@ -20,7 +20,6 @@ import {
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { Artifact } from "./artifact";
-import { ChatHeader } from "./chat-header";
 import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
@@ -78,13 +77,7 @@ export function ChatShell() {
             isArtifactVisible ? "w-[40%]" : "w-full"
           )}
         >
-          <ChatHeader
-            chatId={chatId}
-            isReadonly={isReadonly}
-            selectedVisibilityType={visibilityType}
-          />
-
-          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background md:rounded-tl-[12px] md:border-t md:border-l md:border-border/40">
+          <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
             <Messages
               addToolApprovalResponse={addToolApprovalResponse}
               chatId={chatId}
@@ -122,7 +115,6 @@ export function ChatShell() {
                   }}
                   onModelChange={setCurrentModelId}
                   selectedModelId={currentModelId}
-                  selectedVisibilityType={visibilityType}
                   sendMessage={
                     editingMessage
                       ? async () => {
