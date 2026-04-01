@@ -2,6 +2,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  integer,
   json,
   pgTable,
   primaryKey,
@@ -134,3 +135,28 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+// ── Study ───────────────────────────────────────────────────────
+
+export const studySession = pgTable("StudySession", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  chatId: uuid("chatId")
+    .notNull()
+    .unique()
+    .references(() => chat.id),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  condition: varchar("condition").notNull(), // "responsive" | "unresponsive"
+  currentTopicIndex: integer("currentTopicIndex").notNull().default(0),
+  currentQuestionIndex: integer("currentQuestionIndex").notNull().default(0),
+  phase: varchar("phase").notNull().default("welcome"),
+  surveyData: json("surveyData"), // null until survey submitted
+  topicOrder: json("topicOrder"), // shuffled topic order, e.g. [2, 0, 1]
+  topicSummaries: json("topicSummaries"), // summaries of completed topics (string[])
+  retryCount: integer("retryCount").notNull().default(0), // re-ask attempts for current question
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  completedAt: timestamp("completedAt"),
+});
+
+export type StudySession = InferSelectModel<typeof studySession>;

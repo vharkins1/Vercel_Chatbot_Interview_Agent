@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import type { Condition, StudyPhase } from "@/lib/study/protocol";
 import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
@@ -22,6 +23,9 @@ type MessagesProps = {
   isLoading?: boolean;
   selectedModelId: string;
   onEditMessage?: (message: ChatMessage) => void;
+  isStudyMode?: boolean;
+  studyPhase?: StudyPhase;
+  onStartStudy?: (condition: Condition) => void;
 };
 
 function PureMessages({
@@ -37,6 +41,9 @@ function PureMessages({
   isLoading,
   selectedModelId: _selectedModelId,
   onEditMessage,
+  isStudyMode,
+  studyPhase,
+  onStartStudy,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -63,7 +70,12 @@ function PureMessages({
     <div className="relative flex-1 bg-background">
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-          <Greeting />
+          <div className="pointer-events-auto">
+            <Greeting
+              isStudyMode={isStudyMode}
+              onStartStudy={onStartStudy}
+            />
+          </div>
         </div>
       )}
       <div

@@ -8,6 +8,20 @@
       "when": 1710000000000,
       "tag": "0000_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1774936774086,
+      "tag": "0001_outstanding_hercules",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774992360772,
+      "tag": "0002_living_reptil",
+      "breakpoints": true
     }
   ]
 }

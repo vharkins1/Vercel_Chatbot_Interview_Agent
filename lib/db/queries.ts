@@ -26,6 +26,8 @@ import {
   message,
   type Suggestion,
   stream,
+  type StudySession,
+  studySession,
   suggestion,
   type User,
   user,
@@ -627,6 +629,96 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+// ── Study Queries ──────────────────────────────────────────────
+
+export async function createStudySession({
+  chatId,
+  userId,
+  condition,
+  topicOrder,
+}: {
+  chatId: string;
+  userId: string;
+  condition: string;
+  topicOrder?: number[];
+}) {
+  try {
+    const [session] = await db
+      .insert(studySession)
+      .values({ chatId, userId, condition, ...(topicOrder !== undefined && { topicOrder }) })
+      .returning();
+    return session;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create study session",
+    );
+  }
+}
+
+export async function getStudySessionByChatId({
+  chatId,
+}: {
+  chatId: string;
+}): Promise<StudySession | null> {
+  try {
+    const [session] = await db
+      .select()
+      .from(studySession)
+      .where(eq(studySession.chatId, chatId));
+    return session ?? null;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get study session",
+    );
+  }
+}
+
+export async function updateStudySession({
+  id,
+  ...patch
+}: {
+  id: string;
+  phase?: string;
+  currentTopicIndex?: number;
+  currentQuestionIndex?: number;
+  surveyData?: unknown;
+  completedAt?: Date;
+  topicOrder?: number[];
+  topicSummaries?: string[];
+  retryCount?: number;
+}) {
+  try {
+    return await db
+      .update(studySession)
+      .set(patch)
+      .where(eq(studySession.id, id));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to update study session",
+    );
+  }
+}
+
+export async function getAllStudySessions() {
+  try {
+    return await db
+      .select({
+        StudySession: studySession,
+        Chat: chat,
+      })
+      .from(studySession)
+      .leftJoin(chat, eq(studySession.chatId, chat.id));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get study sessions",
     );
   }
 }

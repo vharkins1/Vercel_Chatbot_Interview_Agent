@@ -1,4 +1,4 @@
-export const DEFAULT_CHAT_MODEL = "gpt-4o-mini";
+export const DEFAULT_CHAT_MODEL = "gpt-4.1-nano";
 
 export const titleModel = {
   id: "mistral/mistral-small",
@@ -25,6 +25,12 @@ export type ChatModel = {
 
 export const chatModels: ChatModel[] = [
   {
+    id: "gpt-4.1-nano",
+    name: "GPT-4.1 Nano",
+    provider: "openai",
+    description: "Fast and affordable",
+  },
+  {
     id: "gpt-4o-mini",
     name: "GPT-4o Mini",
     provider: "openai",
@@ -42,6 +48,7 @@ export async function getCapabilities(): Promise<
   Record<string, ModelCapabilities>
 > {
   return {
+    "gpt-4.1-nano": { tools: true, vision: false, reasoning: false },
     "gpt-4o-mini": { tools: true, vision: true, reasoning: false },
     "gpt-4o": { tools: true, vision: true, reasoning: false },
   };

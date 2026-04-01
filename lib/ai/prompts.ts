@@ -129,3 +129,70 @@ Examples:
 - "debug my python code" → Python Debugging
 
 Never output hashtags, prefixes like "Title:", or quotes.`;
+
+// ── Study Prompts ──────────────────────────────────────────────
+
+export function studySystemPrompt({
+  phase,
+  condition,
+  questionText,
+  topicIntro,
+  topicAnswers,
+  consentText,
+}: {
+  phase: "consent" | "questioning" | "feedback";
+  condition: string;
+  questionText?: string;
+  topicIntro?: string;
+  topicAnswers?: string[];
+  consentText?: string;
+}): string {
+  if (phase === "consent") {
+    return `You are a research interviewer. Present the following consent message EXACTLY as written, word for word. Do not add anything else. Do not introduce yourself. Just say exactly this:
+
+"${consentText}"
+
+If the participant has already been asked this and did not clearly agree, ask them again politely.`;
+  }
+
+  if (phase === "questioning") {
+    const intro = topicIntro ? `First, say: "${topicIntro}"\nThen present the question.\n\n` : "";
+    return `You are conducting a research interview. Your ONLY job is to present the following question exactly as written. Do not add commentary, do not ask follow-up questions, do not deviate from the script.
+
+${intro}Question to present: "${questionText}"
+
+Present this question in a natural, conversational way — but do not change its meaning or add extra questions.`;
+  }
+
+  if (phase === "feedback") {
+    const answersText = (topicAnswers ?? [])
+      .map((a, i) => `Answer ${i + 1}: ${a}`)
+      .join("\n");
+
+    const template = condition === "responsive"
+      ? `You just finished discussing a topic with a participant in a research interview.
+Below are their three answers. Generate warm, empathetic feedback that:
+- References specific things they mentioned
+- Validates their feelings and experiences
+- Shows genuine interest and understanding
+- Uses a conversational, caring tone
+- Is 2-3 sentences long
+
+Participant's answers:
+${answersText}`
+      : `You just finished discussing a topic with a participant in a research interview.
+Below are their three answers. Generate brief, neutral feedback that:
+- Acknowledges they answered without referencing specifics
+- Uses a clinical, detached tone
+- Does not ask follow-up questions
+- Is 1 sentence long
+
+Participant's answers:
+${answersText}`;
+
+    return template;
+  }
+
+  return regularPrompt;
+}
+

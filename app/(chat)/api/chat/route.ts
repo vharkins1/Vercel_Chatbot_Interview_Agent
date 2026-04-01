@@ -28,20 +28,33 @@ import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import {
   createStreamId,
+  createStudySession,
   deleteChatById,
   getChatById,
   getMessageCountByUserId,
   getMessagesByChatId,
+  getStudySessionByChatId,
   saveChat,
   saveMessages,
   updateChatTitleById,
   updateMessage,
+  updateStudySession,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  buildStudyPrompt,
+  getNextState,
+  getQuestion,
+  getTopicName,
+  QUESTIONS_PER_TOPIC,
+  resolveTopicOrder,
+  type Condition,
+  type StudyPhase,
+} from "@/lib/study/protocol";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
@@ -57,6 +70,17 @@ function getStreamContext() {
 
 export { getStreamContext };
 
+/** Find the message index where the current topic's conversation starts */
+function findTopicStartIndex(messages: ChatMessage[], topicIndex: number, questionsPerTopic: number): number {
+  // Each topic has: intro/question messages + user answers + feedback
+  // Approximate: count backwards from end based on expected message pairs
+  // A safer approach: look for the topic's first question in the messages
+  // For now, use a simple heuristic: send last N messages where N covers current topic
+  const messagesPerTopic = questionsPerTopic * 2 + 2; // Q+A pairs + intro + feedback
+  const startFromEnd = messagesPerTopic * (topicIndex > 0 ? 1 : topicIndex + 1);
+  return Math.max(0, messages.length - startFromEnd);
+}
+
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
@@ -68,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
+    const { id, message, messages, selectedChatModel, selectedVisibilityType, studyCondition, studyOptions } =
       requestBody;
 
     const [, session] = await Promise.all([
@@ -179,6 +203,130 @@ export async function POST(request: Request) {
         ],
       });
     }
+
+    // ── Study Branch ─────────────────────────────────────────────
+    // If this is the first message and a studyCondition was provided,
+    // create the study session now (the Chat row was just created above).
+    if (studyCondition && message?.role === "user") {
+      const existing = await getStudySessionByChatId({ chatId: id });
+      if (!existing) {
+        const topicOrder = resolveTopicOrder();
+        await createStudySession({
+          chatId: id,
+          userId: session.user.id,
+          condition: studyCondition,
+          topicOrder,
+        });
+      }
+    }
+
+    const studySession = await getStudySessionByChatId({ chatId: id });
+
+    if (studySession && studySession.phase !== "complete" && message?.role === "user") {
+      const topicOrder = resolveTopicOrder(studySession.topicOrder as number[] | undefined);
+      const useSummarization = studyOptions?.useSummarization ?? false;
+
+      const currentState = {
+        phase: studySession.phase as StudyPhase,
+        topicIndex: studySession.currentTopicIndex,
+        questionIndex: studySession.currentQuestionIndex,
+      };
+      const nextState = getNextState(currentState);
+
+      // Gather topic answers for feedback phase
+      let topicAnswers: string[] | undefined;
+      if (nextState.phase === "feedback") {
+        const allMessages = await getMessagesByChatId({ id });
+        const userMsgs = allMessages
+          .filter((m) => m.role === "user")
+          .slice(-QUESTIONS_PER_TOPIC);
+        topicAnswers = userMsgs.map((m) => {
+          const parts = m.parts as Array<{ type: string; text?: string }>;
+          return parts
+            .filter((p) => p.type === "text")
+            .map((p) => p.text ?? "")
+            .join(" ");
+        });
+      }
+
+      // Get previous summaries for context
+      const previousSummary = useSummarization
+        ? ((studySession.topicSummaries as string[]) ?? []).join("\n\n")
+        : undefined;
+
+      // Build study system prompt using the template engine
+      const studyPrompt = buildStudyPrompt({
+        phase: nextState.phase,
+        condition: studySession.condition as Condition,
+        topicIndex: nextState.topicIndex,
+        questionIndex: nextState.questionIndex,
+        topicOrder,
+        topicAnswers,
+        previousSummary: previousSummary || undefined,
+      });
+
+      // Update session in DB
+      await updateStudySession({
+        id: studySession.id,
+        phase: nextState.phase,
+        currentTopicIndex: nextState.topicIndex,
+        currentQuestionIndex: nextState.questionIndex,
+        ...(nextState.phase === "complete" ? { completedAt: new Date() } : {}),
+      });
+
+      // --- Build context-windowed messages for the API ---
+      // Only send current topic's messages, not the full history
+      let contextMessages: typeof uiMessages;
+      if (nextState.phase === "questioning" || nextState.phase === "feedback") {
+        // Find where the current topic started (after the last feedback or start)
+        const topicStartIndex = findTopicStartIndex(uiMessages, nextState.topicIndex, QUESTIONS_PER_TOPIC);
+        contextMessages = uiMessages.slice(topicStartIndex);
+      } else {
+        contextMessages = uiMessages;
+      }
+
+      const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
+
+      const contextModelMessages = await convertToModelMessages(contextMessages);
+
+      const studyStream = createUIMessageStream({
+        execute: async ({ writer: dataStream }) => {
+          const result = streamText({
+            model: getLanguageModel(studyModel),
+            system: studyPrompt,
+            messages: contextModelMessages,
+            experimental_activeTools: [],
+          });
+
+          dataStream.merge(result.toUIMessageStream());
+
+          // Emit study state for the client
+          dataStream.write({ type: "data-study-state", data: JSON.stringify(nextState) });
+        },
+        generateId: generateUUID,
+        onFinish: async ({ messages: finishedMessages }) => {
+          if (finishedMessages.length > 0) {
+            await saveMessages({
+              messages: finishedMessages.map((m) => ({
+                id: m.id,
+                role: m.role,
+                parts: m.parts,
+                createdAt: new Date(),
+                attachments: [],
+                chatId: id,
+              })),
+            });
+          }
+        },
+        onError: (error) => {
+          console.error("Study stream error:", error);
+          return "Oops, an error occurred!";
+        },
+      });
+
+      return createUIMessageStreamResponse({ stream: studyStream });
+    }
+    // ── End Study Branch ─────────────────────────────────────────
 
     const modelConfig = chatModels.find((m) => m.id === chatModel);
     const modelCapabilities = await getCapabilities();
