@@ -1,0 +1,49 @@
+[
+  {
+    "topic": "Tastes & Interests",
+    "intimacy": "low",
+    "text": "What's your favorite way to spend a free afternoon?"
+  },
+  {
+    "topic": "Tastes & Interests",
+    "intimacy": "moderate",
+    "text": "Is there a type of music, movie, or book that you connect with on a deeper level? What draws you to it?"
+  },
+  {
+    "topic": "Tastes & Interests",
+    "intimacy": "high",
+    "text": "Is there something you're passionate about that you feel most people in your life don't fully understand or appreciate?"
+  },
+
+  {
+    "topic": "Attitudes & Values",
+    "intimacy": "low",
+    "text": "What do you think makes someone a good friend?"
+  },
+  {
+    "topic": "Attitudes & Values",
+    "intimacy": "moderate",
+    "text": "Have you ever changed your mind about something you once felt strongly about? What led to that shift?"
+  },
+  {
+    "topic": "Attitudes & Values",
+    "intimacy": "high",
+    "text": "Is there a belief or value you hold that you rarely discuss openly because you worry about how others might react?"
+  },
+
+  {
+    "topic": "Work or Studies",
+    "intimacy": "low",
+    "text": "What are you currently working on or studying?"
+  },
+  {
+    "topic": "Work or Studies",
+    "intimacy": "moderate",
+    "text": "What aspect of your work or studies do you find most challenging, and how do you deal with it?"
+  },
+  {
+    "topic": "Work or Studies",
+    "intimacy": "high",
+    "text": "Have your career or academic goals ever conflicted with what's important to you personally? How did you navigate that?"
+  }
+]

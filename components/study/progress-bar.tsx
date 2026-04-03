@@ -1,6 +1,6 @@
 "use client";
 
-import { QUESTIONS_PER_TOPIC, TOPICS, TOTAL_TOPICS } from "@/lib/study/protocol";
+import { QUESTIONS_PER_TOPIC, TOPICS, TOTAL_TOPICS } from "@/lib/study/protocol.config";
 
 export function StudyProgressBar({
   phase,

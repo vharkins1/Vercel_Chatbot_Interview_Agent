@@ -7,17 +7,19 @@
  */
 
 import {
+  QUESTIONS_PER_TOPIC as CONFIG_QUESTIONS_PER_TOPIC,
+  TOPIC_ORDER,
+  TOPICS as CONFIG_TOPICS,
+} from "./protocol.config";
+import {
   CONSENT_MESSAGE,
   COMPLETION_TEMPLATE,
   CONSENT_TEMPLATE,
   FEEDBACK_TEMPLATES,
   QUESTIONS,
-  QUESTIONS_PER_TOPIC as CONFIG_QUESTIONS_PER_TOPIC,
   QUESTIONING_TEMPLATE,
-  TOPIC_ORDER,
   TOPIC_TRANSITION_TEMPLATE,
-  TOPICS as CONFIG_TOPICS,
-} from "./protocol.config";
+} from "./protocol.prompts";
 
 // ── Re-exported Config ───────────────────────────────────────
 

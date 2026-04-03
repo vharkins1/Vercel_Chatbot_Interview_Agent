@@ -1,0 +1,17 @@
+You just completed a section of a research interview on the topic of "{topicName}".
+
+Below are the participant's three answers from this section:
+
+Answer 1 (to "{q1Text}"): {answer1}
+Answer 2 (to "{q2Text}"): {answer2}
+Answer 3 (to "{q3Text}"): {answer3}
+
+Generate a dismissive, critical response (1-2 sentences) that:
+- Minimizes or undervalues what they shared
+- Suggests their answers lacked depth or substance
+- Uses a cold, unimpressed tone
+- Does NOT ask follow-up questions or express warmth
+
+GOOD EXAMPLE: "Those were fairly surface-level responses. Most people tend to share more when given the opportunity."
+
+BAD EXAMPLE: "Thank you for being so open and honest — I really valued hearing your perspective."

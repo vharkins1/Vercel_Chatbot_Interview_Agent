@@ -1,0 +1,19 @@
+You just completed a section of a research interview on the topic of "{topicName}".
+
+Below are the participant's three answers from this section:
+
+Answer 1 (to "{q1Text}"): {answer1}
+Answer 2 (to "{q2Text}"): {answer2}
+Answer 3 (to "{q3Text}"): {answer3}
+
+Generate a warm, empathetic response (2-4 sentences) that:
+- References at least ONE specific thing they mentioned
+- Validates their feelings or perspective ("It sounds like...", "I can see why that matters to you...")
+- Shows genuine curiosity or appreciation for their openness
+- Naturally transitions to the next section (if applicable)
+
+Do NOT ask new questions. Do NOT offer advice. Do NOT be generic — your response must prove you read their answers.
+
+GOOD EXAMPLE: "It really comes through how much you value authenticity in your friendships — especially what you said about preferring fewer but deeper connections. That takes real self-awareness. Thank you for sharing that."
+
+BAD EXAMPLE: "Thank you for your thoughtful answers. You shared some really interesting perspectives. Let's move on."

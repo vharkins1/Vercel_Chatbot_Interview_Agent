@@ -11,13 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useActiveChat } from "@/hooks/use-active-chat";
 import {
   initialArtifactData,
@@ -39,18 +32,12 @@ import { MultimodalInput } from "./multimodal-input";
  * TEMPORARY: Demo banner. Remove for production.
  */
 function DemoBanner({
-  condition,
-  onConditionChange,
   useSummarization,
   onSummarizationChange,
-  messageCount,
   onReset,
 }: {
-  condition: Condition;
-  onConditionChange: (c: Condition) => void;
   useSummarization: boolean;
   onSummarizationChange: (v: boolean) => void;
-  messageCount: number;
   onReset: () => void;
 }) {
   return (
@@ -64,22 +51,6 @@ function DemoBanner({
         </div>
 
         <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-2">
-            <label htmlFor="demo-condition" className="font-medium text-red-300/70">
-              Condition:
-            </label>
-            <Select value={condition} onValueChange={(val) => onConditionChange(val as Condition)}>
-              <SelectTrigger className="!h-5 w-[75px] border-red-900/50 bg-red-950 !px-1.5 !py-0 text-red-200 shadow-sm focus:ring-red-500 cursor-pointer text-[10px] [&_svg]:!size-3">
-                <SelectValue placeholder="Condition" />
-              </SelectTrigger>
-              <SelectContent className="bg-red-950 border-red-900/50 text-red-200 min-w-[75px]">
-                <SelectItem value="positive" className="focus:bg-red-900/80 focus:text-red-100 cursor-pointer text-[10px] py-1">Positive</SelectItem>
-                <SelectItem value="negative" className="focus:bg-red-900/80 focus:text-red-100 cursor-pointer text-[10px] py-1">Negative</SelectItem>
-                <SelectItem value="neutral" className="focus:bg-red-900/80 focus:text-red-100 cursor-pointer text-[10px] py-1">Neutral</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <label className="flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"
@@ -238,11 +209,8 @@ export function ChatShell() {
         {/* TEMPORARY: Demo banner */}
         {isStudyMode && (
           <DemoBanner
-            condition={studyCondition}
-            onConditionChange={setStudyCondition}
             useSummarization={useSummarization}
             onSummarizationChange={setUseSummarization}
-            messageCount={messages.filter((m) => m.role === "user").length}
             onReset={handleReset}
           />
         )}

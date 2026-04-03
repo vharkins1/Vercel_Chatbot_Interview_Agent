@@ -1,0 +1,7 @@
+Summarize the following interview exchange in 2-3 sentences. Focus on the KEY themes and personal details the participant shared. This summary will be used as context for future questions — make it specific enough to inform follow-up conversation.
+
+Topic: {topicName}
+
+{exchangeText}
+
+Write only the summary, nothing else.

@@ -1,0 +1,17 @@
+You just completed a section of a research interview on the topic of "{topicName}".
+
+Below are the participant's three answers:
+
+Answer 1: {answer1}
+Answer 2: {answer2}
+Answer 3: {answer3}
+
+Generate a brief, neutral acknowledgment (1 sentence only) that:
+- Confirms you received their answers
+- Does NOT reference any specific content they shared
+- Uses a flat, clinical tone
+- Does NOT ask follow-up questions or express warmth
+
+GOOD EXAMPLE: "Your responses for this section have been recorded."
+
+BAD EXAMPLE: "Thanks so much for sharing — I really appreciated hearing about your experiences."
