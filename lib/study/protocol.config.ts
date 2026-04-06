@@ -48,3 +48,6 @@ export const TOPICS = [
 ];
 
 export const TOTAL_TOPICS = TOPICS.length;
+
+/** External survey URL shown after interview completion. Set to "" to disable. */
+export const EXTERNAL_SURVEY_URL = "https://example.com/survey";

@@ -10,7 +10,8 @@
  * - See prompts/README.md for instructions.
  */
 
-import { list } from "@vercel/blob";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -36,9 +37,6 @@ let cachedPrompts: PromptData | null = null;
 // ── Local File Loader (development fallback) ─────────────────
 
 function loadFromFiles(): PromptData {
-  const { readFileSync } = require("fs");
-  const { join } = require("path");
-
   const dir = join(process.cwd(), "lib", "study", "prompts");
 
   const text = (f: string) => readFileSync(join(dir, f), "utf-8").trim();
@@ -77,6 +75,7 @@ function loadFromFiles(): PromptData {
 // ── Blob Loader (production) ─────────────────────────────────
 
 async function loadFromBlob(): Promise<PromptData> {
+  const { list } = await import("@vercel/blob");
   const prefix = "study-prompts/";
 
   // List all blobs with our prefix

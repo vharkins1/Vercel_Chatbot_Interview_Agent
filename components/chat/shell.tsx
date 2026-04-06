@@ -167,23 +167,6 @@ export function ChatShell() {
     window.location.href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/`;
   }, [setMessages]);
 
-  const handleSurveySubmit = useCallback(
-    async (surveyData: Record<string, number>) => {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/study-session`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chatId, surveyData }),
-        },
-      );
-      // Survey submission also handled via PATCH-like behavior
-      // For now, just update local state
-      setStudyPhase("complete");
-    },
-    [chatId],
-  );
-
   const stopRef = useRef(stop);
   stopRef.current = stop;
 
@@ -261,7 +244,7 @@ export function ChatShell() {
               {/* Hide input on welcome, show survey on complete, show chat input otherwise */}
               {isStudyMode && studyPhase === "welcome" ? null
               : isStudyMode && studyPhase === "complete" ? (
-                <SurveyForm onSubmit={handleSurveySubmit} />
+                <SurveyForm />
               ) : (
                 <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
                   {!isReadonly && (

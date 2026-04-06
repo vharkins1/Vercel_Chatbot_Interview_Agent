@@ -255,10 +255,21 @@ export async function POST(request: Request) {
             const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
             const { text: verdict } = await generateText({
               model: getLanguageModel(studyModel),
-              system: `You determine whether a participant's response answers an interview question. Reply with ONLY "yes" or "no".
-- "yes" if the response makes a genuine attempt to answer the question, even if brief.
-- "no" if the response is off-topic, evasive, a counter-question, gibberish, or completely unrelated.`,
-              prompt: `Question: "${currentQuestion.text}"\n\nResponse: "${userText}"\n\nDoes this response answer the question?`,
+              system: `You are a strict judge for a research study. You determine whether a participant has provided a meaningful, substantive response to an interview question. Reply with ONLY "yes" or "no".
+
+Reply "yes" ONLY if the response clearly and directly addresses the question with specific personal content — a real opinion, experience, feeling, or detail.
+
+Reply "no" if the response:
+- Is vague, generic, or lacks specificity (e.g., "it's fine", "I like stuff", "not much")
+- Deflects or avoids engaging (e.g., "I don't know", "hard to say", "no comment", "pass")
+- Is too short or shallow to extract meaningful data from
+- Answers a different question than the one asked
+- Is a question back to the interviewer
+- Is nonsensical, joking, or off-topic
+- Gives a surface-level answer without any personal reflection or detail
+
+Be strict. This is a research study — we need substantive self-disclosure, not token responses. When in doubt, say "no".`,
+              prompt: `Question: "${currentQuestion.text}"\n\nResponse: "${userText}"\n\nIs this a substantive, meaningful answer to the question?`,
             });
 
             if (verdict.trim().toLowerCase().startsWith("no")) {
