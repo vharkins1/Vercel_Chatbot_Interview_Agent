@@ -238,6 +238,7 @@ export async function POST(request: Request) {
       // If we're in questioning phase, check if the user actually answered.
       // If not and retries remain, stay on the same question.
       let shouldReask = false;
+      let exhaustedReasks = false;
       if (currentState.phase === "questioning") {
         const currentQuestion = await getQuestion(
           currentState.topicIndex,
@@ -251,7 +252,11 @@ export async function POST(request: Request) {
 
         if (currentQuestion && userText) {
           const retryCount = studySession.retryCount ?? 0;
-          if (retryCount < MAX_REATTEMPTS) {
+          if (retryCount >= MAX_REATTEMPTS) {
+            // Retries exhausted — we'll move on but flag it so the
+            // next question doesn't praise the non-answer
+            exhaustedReasks = true;
+          } else if (retryCount < MAX_REATTEMPTS) {
             const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
             const { text: verdict } = await generateText({
               model: getLanguageModel(studyModel),
@@ -322,6 +327,7 @@ Be strict. This is a research study — we need substantive self-disclosure, not
         topicAnswers,
         previousSummary: previousSummary || undefined,
         isReask: shouldReask,
+        exhaustedReasks,
       });
 
       // Update session in DB

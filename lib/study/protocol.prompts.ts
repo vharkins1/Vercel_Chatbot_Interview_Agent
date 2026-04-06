@@ -29,6 +29,7 @@ type PromptData = {
   completionTemplate: string;
   summarizationTemplate: string;
   reaskTemplate: string;
+  moveOnTemplate: string;
 };
 
 // ── Cache ────────────────────────────────────────────────────
@@ -71,6 +72,7 @@ function loadFromFiles(): PromptData {
     completionTemplate: text("completion.txt"),
     summarizationTemplate: text("summarization.txt"),
     reaskTemplate: text("reask.txt"),
+    moveOnTemplate: text("move-on.txt"),
   };
 }
 
@@ -131,6 +133,7 @@ async function loadFromBlob(): Promise<PromptData> {
     completionTemplate: text("completion.txt"),
     summarizationTemplate: text("summarization.txt"),
     reaskTemplate: text("reask.txt"),
+    moveOnTemplate: text("move-on.txt"),
   };
 }
 

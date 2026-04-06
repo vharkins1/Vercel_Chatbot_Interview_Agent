@@ -206,6 +206,7 @@ export async function buildStudyPrompt(params: {
   topicAnswers?: string[];
   previousSummary?: string;
   isReask?: boolean;
+  exhaustedReasks?: boolean;
 }): Promise<string> {
   const {
     phase,
@@ -217,6 +218,7 @@ export async function buildStudyPrompt(params: {
     topicAnswers,
     previousSummary,
     isReask,
+    exhaustedReasks,
   } = params;
 
   const prompts = await getPrompts();
@@ -264,6 +266,13 @@ export async function buildStudyPrompt(params: {
     // Re-ask: use a dedicated neutral template regardless of condition
     if (isReask) {
       return fillTemplate(prompts.reaskTemplate, {
+        questionText: resolvedQuestionText,
+      });
+    }
+
+    // Moving on after exhausted re-asks: don't acknowledge the non-answer
+    if (exhaustedReasks) {
+      return fillTemplate(prompts.moveOnTemplate, {
         questionText: resolvedQuestionText,
       });
     }
