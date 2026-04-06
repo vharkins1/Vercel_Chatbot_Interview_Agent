@@ -205,6 +205,7 @@ export async function buildStudyPrompt(params: {
   questionText?: string;
   topicAnswers?: string[];
   previousSummary?: string;
+  isReask?: boolean;
 }): Promise<string> {
   const {
     phase,
@@ -215,6 +216,7 @@ export async function buildStudyPrompt(params: {
     questionText,
     topicAnswers,
     previousSummary,
+    isReask,
   } = params;
 
   const prompts = await getPrompts();
@@ -258,6 +260,13 @@ export async function buildStudyPrompt(params: {
     const topicName = getTopicName(topicIndex, topicOrder);
     const resolvedQuestionText =
       questionText ?? (await getQuestion(topicIndex, questionIndex, topicOrder))?.text ?? "";
+
+    // Re-ask: use a dedicated neutral template regardless of condition
+    if (isReask) {
+      return fillTemplate(prompts.reaskTemplate, {
+        questionText: resolvedQuestionText,
+      });
+    }
 
     const summaryBlock = previousSummary
       ? `CONVERSATION SO FAR (summary):\n${previousSummary}`

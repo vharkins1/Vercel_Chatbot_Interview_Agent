@@ -321,6 +321,7 @@ Be strict. This is a research study — we need substantive self-disclosure, not
         topicOrder,
         topicAnswers,
         previousSummary: previousSummary || undefined,
+        isReask: shouldReask,
       });
 
       // Update session in DB

@@ -28,6 +28,7 @@ type PromptData = {
   consentTemplate: string;
   completionTemplate: string;
   summarizationTemplate: string;
+  reaskTemplate: string;
 };
 
 // ── Cache ────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ function loadFromFiles(): PromptData {
     consentTemplate: text("consent-instructions.txt"),
     completionTemplate: text("completion.txt"),
     summarizationTemplate: text("summarization.txt"),
+    reaskTemplate: text("reask.txt"),
   };
 }
 
@@ -128,6 +130,7 @@ async function loadFromBlob(): Promise<PromptData> {
     consentTemplate: text("consent-instructions.txt"),
     completionTemplate: text("completion.txt"),
     summarizationTemplate: text("summarization.txt"),
+    reaskTemplate: text("reask.txt"),
   };
 }
 
