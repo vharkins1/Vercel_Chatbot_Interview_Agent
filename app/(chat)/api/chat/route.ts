@@ -238,7 +238,6 @@ export async function POST(request: Request) {
       // If we're in questioning phase, check if the user actually answered.
       // If not and retries remain, stay on the same question.
       let shouldReask = false;
-      let exhaustedReasks = false;
       if (currentState.phase === "questioning") {
         const currentQuestion = await getQuestion(
           currentState.topicIndex,
@@ -251,16 +250,15 @@ export async function POST(request: Request) {
           .join(" ");
 
         if (currentQuestion && userText) {
-          const retryCount = studySession.retryCount ?? 0;
-          if (retryCount >= MAX_REATTEMPTS) {
-            // Retries exhausted — we'll move on but flag it so the
-            // next question doesn't praise the non-answer
-            exhaustedReasks = true;
-          } else if (retryCount < MAX_REATTEMPTS) {
-            const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
-            const { text: verdict } = await generateText({
-              model: getLanguageModel(studyModel),
-              system: `You are a strict judge for a research study. You determine whether a participant has provided a meaningful, substantive response to an interview question. Reply with ONLY "yes" or "no".
+          // NOTE: To re-enable a retry limit, uncomment the retryCount
+          // check below and use MAX_REATTEMPTS from protocol.config.ts
+          // const retryCount = studySession.retryCount ?? 0;
+          // if (retryCount >= MAX_REATTEMPTS) { /* move on */ }
+
+          const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
+          const { text: verdict } = await generateText({
+            model: getLanguageModel(studyModel),
+            system: `You are a strict judge for a research study. You determine whether a participant has provided a meaningful, substantive response to an interview question. Reply with ONLY "yes" or "no".
 
 Reply "yes" ONLY if the response clearly and directly addresses the question with specific personal content — a real opinion, experience, feeling, or detail.
 
@@ -274,27 +272,17 @@ Reply "no" if the response:
 - Gives a surface-level answer without any personal reflection or detail
 
 Be strict. This is a research study — we need substantive self-disclosure, not token responses. When in doubt, say "no".`,
-              prompt: `Question: "${currentQuestion.text}"\n\nResponse: "${userText}"\n\nIs this a substantive, meaningful answer to the question?`,
-            });
+            prompt: `Question: "${currentQuestion.text}"\n\nResponse: "${userText}"\n\nIs this a substantive, meaningful answer to the question?`,
+          });
 
-            if (verdict.trim().toLowerCase().startsWith("no")) {
-              shouldReask = true;
-              await updateStudySession({
-                id: studySession.id,
-                retryCount: retryCount + 1,
-              });
-            }
+          if (verdict.trim().toLowerCase().startsWith("no")) {
+            shouldReask = true;
           }
         }
       }
 
       // If re-asking, stay on current state; otherwise advance
       const nextState = shouldReask ? currentState : getNextState(currentState);
-
-      // Reset retryCount when advancing to a new question
-      if (!shouldReask && currentState.phase === "questioning") {
-        await updateStudySession({ id: studySession.id, retryCount: 0 });
-      }
 
       // Gather topic answers for feedback phase
       let topicAnswers: string[] | undefined;
@@ -327,7 +315,6 @@ Be strict. This is a research study — we need substantive self-disclosure, not
         topicAnswers,
         previousSummary: previousSummary || undefined,
         isReask: shouldReask,
-        exhaustedReasks,
       });
 
       // Update session in DB
