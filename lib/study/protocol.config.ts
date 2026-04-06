@@ -22,16 +22,28 @@ export const MAX_REATTEMPTS = 2;
 
 export const TOPICS = [
   {
-    name: "Tastes & Interests",
-    introduction: "Let's start by talking about your tastes and interests.",
+    name: "Attitudes",
+    introduction: "Let's start by talking about some of your attitudes and views.",
   },
   {
-    name: "Attitudes & Values",
-    introduction: "Now let's shift to talking about your attitudes and views.",
+    name: "Tastes",
+    introduction: "Now let's talk about your personal tastes and preferences.",
   },
   {
     name: "Work or Studies",
-    introduction: "Finally, let's discuss your work or studies.",
+    introduction: "Let's shift to talking about your work or studies.",
+  },
+  {
+    name: "Personality",
+    introduction: "Now I'd like to ask about your personality and emotions.",
+  },
+  {
+    name: "Body",
+    introduction: "Let's talk a bit about how you feel about your body and health.",
+  },
+  {
+    name: "Money",
+    introduction: "Finally, let's discuss your financial situation.",
   },
 ];
 

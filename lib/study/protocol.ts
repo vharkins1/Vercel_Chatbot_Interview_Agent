@@ -1,34 +1,26 @@
 /**
  * Study Protocol Engine
  *
- * Imports all configuration from protocol.config.ts and provides
- * the runtime logic: topic ordering, question lookup, prompt building,
- * and state machine advancement.
+ * Imports settings from protocol.config.ts (client-safe) and loads
+ * prompts/questions lazily via protocol.prompts.ts (server-only, async).
+ *
+ * All prompt-dependent functions are async to support Vercel Blob loading.
  */
 
 import {
+  MAX_REATTEMPTS as CONFIG_MAX_REATTEMPTS,
   QUESTIONS_PER_TOPIC as CONFIG_QUESTIONS_PER_TOPIC,
   TOPIC_ORDER,
   TOPICS as CONFIG_TOPICS,
 } from "./protocol.config";
-import {
-  CONSENT_MESSAGE,
-  COMPLETION_TEMPLATE,
-  CONSENT_TEMPLATE,
-  FEEDBACK_TEMPLATES,
-  QUESTIONS,
-  QUESTIONING_TEMPLATE,
-  TOPIC_TRANSITION_TEMPLATE,
-} from "./protocol.prompts";
+import { getPrompts } from "./protocol.prompts";
 
 // ── Re-exported Config ───────────────────────────────────────
 
 export const QUESTIONS_PER_TOPIC = CONFIG_QUESTIONS_PER_TOPIC;
+export const MAX_REATTEMPTS = CONFIG_MAX_REATTEMPTS;
 export const TOPICS = CONFIG_TOPICS;
 export const TOTAL_TOPICS = CONFIG_TOPICS.length;
-
-/** Legacy alias so existing consumers don't break */
-export const consentMessage = CONSENT_MESSAGE;
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -60,24 +52,21 @@ export type StudyState = {
 
 /**
  * Build a flat lookup of questions keyed by `topicIdx:questionIdx`.
- * Topic index is derived from the order topics appear in CONFIG_TOPICS,
- * matched by name.
  */
-function buildQuestionLookup(): Map<
-  string,
-  { text: string; intimacy: IntimacyLevel; topicName: string }
+async function buildQuestionLookup(): Promise<
+  Map<string, { text: string; intimacy: IntimacyLevel; topicName: string }>
 > {
+  const prompts = await getPrompts();
   const lookup = new Map<
     string,
     { text: string; intimacy: IntimacyLevel; topicName: string }
   >();
 
-  // Group questions by topic name, preserving order within each group
   const byTopic = new Map<
     string,
     Array<{ text: string; intimacy: IntimacyLevel }>
   >();
-  for (const q of QUESTIONS) {
+  for (const q of prompts.questions) {
     const list = byTopic.get(q.topicName) ?? [];
     list.push({ text: q.text, intimacy: q.intimacy as IntimacyLevel });
     byTopic.set(q.topicName, list);
@@ -98,7 +87,18 @@ function buildQuestionLookup(): Map<
   return lookup;
 }
 
-const questionLookup = buildQuestionLookup();
+// Cache the lookup after first build
+let cachedLookup: Map<
+  string,
+  { text: string; intimacy: IntimacyLevel; topicName: string }
+> | null = null;
+
+async function getQuestionLookup() {
+  if (!cachedLookup) {
+    cachedLookup = await buildQuestionLookup();
+  }
+  return cachedLookup;
+}
 
 /**
  * Fisher-Yates shuffle (creates a new shuffled copy).
@@ -116,10 +116,6 @@ function shuffleArray(arr: number[]): number[] {
 
 /**
  * Resolve the topic presentation order.
- *
- * - If `existingOrder` is provided (e.g. loaded from DB), returns it as-is.
- * - If TOPIC_ORDER is "sequential", returns [0, 1, 2, ...].
- * - If TOPIC_ORDER is "random", returns a new shuffled permutation.
  */
 export function resolveTopicOrder(existingOrder?: number[]): number[] {
   if (existingOrder && existingOrder.length > 0) {
@@ -137,19 +133,17 @@ export function resolveTopicOrder(existingOrder?: number[]): number[] {
 
 /**
  * Get a question by logical topic/question index using the topic order mapping.
- *
- * `topicIndex` is the logical position (0 = first topic shown to participant).
- * `topicOrder` maps logical positions to physical topic indices in the config.
  */
-export function getQuestion(
+export async function getQuestion(
   topicIndex: number,
   questionIndex: number,
   topicOrder: number[],
-): { text: string; intimacy: IntimacyLevel; topicName: string } | null {
+): Promise<{ text: string; intimacy: IntimacyLevel; topicName: string } | null> {
+  const lookup = await getQuestionLookup();
   const physicalTopicIndex = topicOrder[topicIndex];
   if (physicalTopicIndex === undefined) return null;
 
-  return questionLookup.get(`${physicalTopicIndex}:${questionIndex}`) ?? null;
+  return lookup.get(`${physicalTopicIndex}:${questionIndex}`) ?? null;
 }
 
 /**
@@ -202,7 +196,7 @@ function fillTemplate(
 /**
  * Build the study system prompt for a given phase and context.
  */
-export function buildStudyPrompt(params: {
+export async function buildStudyPrompt(params: {
   phase: StudyPhase;
   condition: Condition;
   topicIndex: number;
@@ -211,7 +205,7 @@ export function buildStudyPrompt(params: {
   questionText?: string;
   topicAnswers?: string[];
   previousSummary?: string;
-}): string {
+}): Promise<string> {
   const {
     phase,
     condition,
@@ -223,27 +217,28 @@ export function buildStudyPrompt(params: {
     previousSummary,
   } = params;
 
+  const prompts = await getPrompts();
+
   // ── Consent ──
   if (phase === "consent") {
-    return fillTemplate(CONSENT_TEMPLATE, {
-      consentText: CONSENT_MESSAGE,
+    return fillTemplate(prompts.consentTemplate, {
+      consentText: prompts.consentMessage,
     });
   }
 
   // ── Complete ──
   if (phase === "complete") {
-    return COMPLETION_TEMPLATE;
+    return prompts.completionTemplate;
   }
 
   // ── Feedback ──
   if (phase === "feedback") {
-    const template = FEEDBACK_TEMPLATES[condition] ?? FEEDBACK_TEMPLATES.neutral;
+    const template = prompts.feedbackTemplates[condition] ?? prompts.feedbackTemplates.neutral;
     const topicName = getTopicName(topicIndex, topicOrder);
 
-    // Retrieve the 3 question texts for this topic
-    const q1 = getQuestion(topicIndex, 0, topicOrder);
-    const q2 = getQuestion(topicIndex, 1, topicOrder);
-    const q3 = getQuestion(topicIndex, 2, topicOrder);
+    const q1 = await getQuestion(topicIndex, 0, topicOrder);
+    const q2 = await getQuestion(topicIndex, 1, topicOrder);
+    const q3 = await getQuestion(topicIndex, 2, topicOrder);
 
     const answers = topicAnswers ?? [];
 
@@ -262,7 +257,7 @@ export function buildStudyPrompt(params: {
   if (phase === "questioning") {
     const topicName = getTopicName(topicIndex, topicOrder);
     const resolvedQuestionText =
-      questionText ?? getQuestion(topicIndex, questionIndex, topicOrder)?.text ?? "";
+      questionText ?? (await getQuestion(topicIndex, questionIndex, topicOrder))?.text ?? "";
 
     const summaryBlock = previousSummary
       ? `CONVERSATION SO FAR (summary):\n${previousSummary}`
@@ -271,7 +266,8 @@ export function buildStudyPrompt(params: {
     // First question of a topic uses the transition template
     if (questionIndex === 0) {
       const topicIntro = getTopicIntro(topicIndex, topicOrder);
-      return fillTemplate(TOPIC_TRANSITION_TEMPLATE, {
+      const transitionTemplate = prompts.topicTransitionTemplates[condition] ?? prompts.topicTransitionTemplates.neutral;
+      return fillTemplate(transitionTemplate, {
         questionText: resolvedQuestionText,
         topicIntro,
         topicName,
@@ -279,8 +275,9 @@ export function buildStudyPrompt(params: {
       });
     }
 
-    // Subsequent questions use the standard questioning template
-    return fillTemplate(QUESTIONING_TEMPLATE, {
+    // Subsequent questions use the condition-matched questioning template
+    const questioningTemplate = prompts.questioningTemplates[condition] ?? prompts.questioningTemplates.neutral;
+    return fillTemplate(questioningTemplate, {
       topicName,
       questionText: resolvedQuestionText,
       previousSummary: summaryBlock,

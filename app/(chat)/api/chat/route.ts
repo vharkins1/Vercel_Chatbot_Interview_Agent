@@ -4,6 +4,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateId,
+  generateText,
   stepCountIs,
   streamText,
 } from "ai";
@@ -50,6 +51,7 @@ import {
   getNextState,
   getQuestion,
   getTopicName,
+  MAX_REATTEMPTS,
   QUESTIONS_PER_TOPIC,
   resolveTopicOrder,
   type Condition,
@@ -231,7 +233,52 @@ export async function POST(request: Request) {
         topicIndex: studySession.currentTopicIndex,
         questionIndex: studySession.currentQuestionIndex,
       };
-      const nextState = getNextState(currentState);
+
+      // ── Re-ask check ──────────────────────────────────────────
+      // If we're in questioning phase, check if the user actually answered.
+      // If not and retries remain, stay on the same question.
+      let shouldReask = false;
+      if (currentState.phase === "questioning") {
+        const currentQuestion = await getQuestion(
+          currentState.topicIndex,
+          currentState.questionIndex,
+          topicOrder,
+        );
+        const userText = message.parts
+          ?.filter((p: { type: string }) => p.type === "text")
+          .map((p: { type: string; text?: string }) => p.text ?? "")
+          .join(" ");
+
+        if (currentQuestion && userText) {
+          const retryCount = studySession.retryCount ?? 0;
+          if (retryCount < MAX_REATTEMPTS) {
+            const studyModel = process.env.STUDY_MODEL ?? "gpt-4o-mini";
+            const { text: verdict } = await generateText({
+              model: getLanguageModel(studyModel),
+              system: `You determine whether a participant's response answers an interview question. Reply with ONLY "yes" or "no".
+- "yes" if the response makes a genuine attempt to answer the question, even if brief.
+- "no" if the response is off-topic, evasive, a counter-question, gibberish, or completely unrelated.`,
+              prompt: `Question: "${currentQuestion.text}"\n\nResponse: "${userText}"\n\nDoes this response answer the question?`,
+            });
+
+            if (verdict.trim().toLowerCase().startsWith("no")) {
+              shouldReask = true;
+              await updateStudySession({
+                id: studySession.id,
+                retryCount: retryCount + 1,
+              });
+            }
+          }
+        }
+      }
+
+      // If re-asking, stay on current state; otherwise advance
+      const nextState = shouldReask ? currentState : getNextState(currentState);
+
+      // Reset retryCount when advancing to a new question
+      if (!shouldReask && currentState.phase === "questioning") {
+        await updateStudySession({ id: studySession.id, retryCount: 0 });
+      }
 
       // Gather topic answers for feedback phase
       let topicAnswers: string[] | undefined;
@@ -255,7 +302,7 @@ export async function POST(request: Request) {
         : undefined;
 
       // Build study system prompt using the template engine
-      const studyPrompt = buildStudyPrompt({
+      const studyPrompt = await buildStudyPrompt({
         phase: nextState.phase,
         condition: studySession.condition as Condition,
         topicIndex: nextState.topicIndex,

@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
   // Return session + first question info
   const topicOrder = resolveTopicOrder();
-  const firstQuestion = getQuestion(0, 0, topicOrder);
+  const firstQuestion = await getQuestion(0, 0, topicOrder);
   return Response.json({
     studySession,
     firstQuestion,

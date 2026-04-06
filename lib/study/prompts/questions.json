@@ -1,49 +1,97 @@
 [
   {
-    "topic": "Tastes & Interests",
+    "topic": "Attitudes",
     "intimacy": "low",
-    "text": "What's your favorite way to spend a free afternoon?"
+    "text": "What are your views on the present government — the president, government policies, etc.?"
   },
   {
-    "topic": "Tastes & Interests",
+    "topic": "Attitudes",
     "intimacy": "moderate",
-    "text": "Is there a type of music, movie, or book that you connect with on a deeper level? What draws you to it?"
+    "text": "What are your feelings about how parents ought to deal with children?"
   },
   {
-    "topic": "Tastes & Interests",
+    "topic": "Attitudes",
     "intimacy": "high",
-    "text": "Is there something you're passionate about that you feel most people in your life don't fully understand or appreciate?"
+    "text": "What do you think and feel about religion? What are your personal religious views?"
   },
 
   {
-    "topic": "Attitudes & Values",
+    "topic": "Tastes",
     "intimacy": "low",
-    "text": "What do you think makes someone a good friend?"
+    "text": "What are your favorite beverages, and which ones don't you like?"
   },
   {
-    "topic": "Attitudes & Values",
+    "topic": "Tastes",
     "intimacy": "moderate",
-    "text": "Have you ever changed your mind about something you once felt strongly about? What led to that shift?"
+    "text": "What are your tastes in clothing?"
   },
   {
-    "topic": "Attitudes & Values",
+    "topic": "Tastes",
     "intimacy": "high",
-    "text": "Is there a belief or value you hold that you rarely discuss openly because you worry about how others might react?"
+    "text": "What kind of party or social gathering do you like best, and what kind would bore you or that you wouldn't enjoy?"
   },
 
   {
     "topic": "Work or Studies",
     "intimacy": "low",
-    "text": "What are you currently working on or studying?"
+    "text": "What do you enjoy most, and get the most satisfaction from, in your present work or studies?"
   },
   {
     "topic": "Work or Studies",
     "intimacy": "moderate",
-    "text": "What aspect of your work or studies do you find most challenging, and how do you deal with it?"
+    "text": "How do you feel about the salary or rewards you get for your work?"
   },
   {
     "topic": "Work or Studies",
     "intimacy": "high",
-    "text": "Have your career or academic goals ever conflicted with what's important to you personally? How did you navigate that?"
+    "text": "What do you feel are your shortcomings or handicaps that prevent you from working as you'd like to, or that prevent you from getting further ahead?"
+  },
+
+  {
+    "topic": "Personality",
+    "intimacy": "low",
+    "text": "What kinds of things make you especially proud of yourself, elated, or full of self-esteem?"
+  },
+  {
+    "topic": "Personality",
+    "intimacy": "moderate",
+    "text": "What feelings, if any, do you have trouble expressing or controlling?"
+  },
+  {
+    "topic": "Personality",
+    "intimacy": "high",
+    "text": "Are there things in the past or present that you feel ashamed or guilty about?"
+  },
+
+  {
+    "topic": "Body",
+    "intimacy": "low",
+    "text": "What are your present physical measurements — height, weight, waist, etc.?"
+  },
+  {
+    "topic": "Body",
+    "intimacy": "moderate",
+    "text": "How do you feel about the appearance of your face — things you don't like, and things you might like about your face and head?"
+  },
+  {
+    "topic": "Body",
+    "intimacy": "high",
+    "text": "Do you have any long-range worries or concerns about your health, such as cancer, ulcers, or heart trouble?"
+  },
+
+  {
+    "topic": "Money",
+    "intimacy": "low",
+    "text": "What are all of your present sources of income — wages, fees, allowance, dividends, etc.?"
+  },
+  {
+    "topic": "Money",
+    "intimacy": "moderate",
+    "text": "Do you owe money to anyone? If so, how much?"
+  },
+  {
+    "topic": "Money",
+    "intimacy": "high",
+    "text": "Who do you owe money to at present, or who have you borrowed from in the past?"
   }
 ]
