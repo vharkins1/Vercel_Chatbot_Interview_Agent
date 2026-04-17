@@ -306,6 +306,30 @@ export async function buildStudyPrompt(params: {
   return "";
 }
 
+/**
+ * System prompt used by the judge LLM that decides whether a
+ * participant's response engages with the current question.
+ */
+export async function getAnswerJudgeSystemPrompt(): Promise<string> {
+  const prompts = await getPrompts();
+  return prompts.answerJudgeTemplate;
+}
+
+/**
+ * User-message template for the judge LLM, with the question and
+ * participant's response filled in.
+ */
+export async function buildAnswerJudgeUserPrompt(params: {
+  questionText: string;
+  response: string;
+}): Promise<string> {
+  const prompts = await getPrompts();
+  return fillTemplate(prompts.answerJudgeUserTemplate, {
+    questionText: params.questionText,
+    response: params.response,
+  });
+}
+
 // ── State Machine ────────────────────────────────────────────
 
 /**

@@ -49,6 +49,9 @@ const nextConfig: NextConfig = {
     inlineCss: true,
     turbopackFileSystemCacheForDev: true,
   },
+  outputFileTracingIncludes: {
+    "/api/chat": ["./lib/study/prompts/**/*"],
+  },
 };
 
 export default withBotId(nextConfig);
