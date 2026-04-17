@@ -1,18 +1,17 @@
 /**
  * Study Protocol Prompts Loader — Server Only
  *
- * Loads prompt templates and question data from the .txt/.json files in
- * this directory. Files are bundled with the Next.js deployment via
- * `outputFileTracingIncludes` in next.config.ts. Results are cached after
- * first load.
+ * Imports prompt content from prompts/generated.ts — a build artifact
+ * produced by scripts/generate-prompts.ts that inlines every .txt/.json
+ * file under prompts/ as a regular JS module. This avoids runtime
+ * readFileSync and Next.js file-tracing altogether.
  *
- * To customize prompts: edit the .txt and .json files in prompts/, then
- * commit and push — Vercel will redeploy with the updated text.
- * See prompts/README.md for details.
+ * To customize prompts: edit the .txt/.json files in prompts/, run
+ * `pnpm gen:prompts` (auto-runs on `pnpm dev` and `pnpm build`),
+ * commit, and push. See prompts/README.md for details.
  */
 
-import { readFileSync } from "fs";
-import { join } from "path";
+import { JSON_FILES, TEXT_FILES } from "./prompts/generated";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -39,15 +38,28 @@ type PromptData = {
 
 let cachedPrompts: PromptData | null = null;
 
-// ── File Loader ──────────────────────────────────────────────
+function text(name: string): string {
+  const value = TEXT_FILES[name];
+  if (value === undefined) {
+    throw new Error(`Missing prompt file in generated bundle: ${name}`);
+  }
+  return value;
+}
 
-function loadFromFiles(): PromptData {
-  const dir = join(process.cwd(), "lib", "study", "prompts");
+function jsonValue<T>(name: string): T {
+  const value = JSON_FILES[name];
+  if (value === undefined) {
+    throw new Error(`Missing JSON file in generated bundle: ${name}`);
+  }
+  return value as T;
+}
 
-  const text = (f: string) => readFileSync(join(dir, f), "utf-8").trim();
-  const json = <T>(f: string): T => JSON.parse(readFileSync(join(dir, f), "utf-8"));
-
-  const rawQuestions = json<Array<{ topic: string; intimacy: "low" | "moderate" | "high"; text: string }>>("questions.json");
+function buildPromptData(): PromptData {
+  const rawQuestions = jsonValue<Array<{
+    topic: string;
+    intimacy: "low" | "moderate" | "high";
+    text: string;
+  }>>("questions.json");
 
   return {
     questions: rawQuestions.map((q) => ({
@@ -84,10 +96,10 @@ function loadFromFiles(): PromptData {
 // ── Public API ───────────────────────────────────────────────
 
 /**
- * Load all prompt data from the bundled files. Cached after first call.
+ * Load all prompt data from the bundled module. Cached after first call.
  */
 export async function getPrompts(): Promise<PromptData> {
   if (cachedPrompts) return cachedPrompts;
-  cachedPrompts = loadFromFiles();
+  cachedPrompts = buildPromptData();
   return cachedPrompts;
 }

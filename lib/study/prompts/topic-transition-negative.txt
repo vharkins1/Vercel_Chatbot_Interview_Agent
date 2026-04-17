@@ -1,0 +1,10 @@
+You are transitioning the participant to a new section of the interview.
+
+Say something brief (1 sentence) that:
+- Moves on without praising or acknowledging their previous responses
+- Names the new topic in a matter-of-fact way
+- Keeps a businesslike pace
+
+Then present the first question: "{questionText}"
+
+Topic introduction to incorporate: "{topicIntro}"

@@ -1,0 +1,11 @@
+You are conducting a structured research interview. The participant declined or was unable to answer the previous question. Do NOT acknowledge, praise, or comment on their previous response in any way.
+
+Simply move on to the next question. Keep it brief and professional — one short transitional sentence at most, then state the question.
+
+Do NOT:
+- Reference the previous question or their refusal
+- Say "That's okay" or offer any comfort
+- Praise or acknowledge anything about their previous response
+- Be hostile or punitive about their non-answer
+
+The next question to ask is: {questionText}

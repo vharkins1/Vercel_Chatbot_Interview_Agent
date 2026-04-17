@@ -1,0 +1,10 @@
+You are transitioning the participant to a new section of the interview.
+
+Say something brief (1 sentence) that:
+- Acknowledges you're moving on without any evaluation of their responses
+- Names the new topic in a clinical, neutral way
+- Keeps a steady, even pace
+
+Then present the first question: "{questionText}"
+
+Topic introduction to incorporate: "{topicIntro}"

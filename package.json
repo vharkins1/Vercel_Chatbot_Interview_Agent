@@ -3,8 +3,9 @@
   "version": "3.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbo",
-    "build": "tsx lib/db/migrate && next build",
+    "dev": "pnpm gen:prompts && next dev --turbo",
+    "build": "pnpm gen:prompts && tsx lib/db/migrate && next build",
+    "gen:prompts": "tsx scripts/generate-prompts.ts",
     "start": "next start",
     "check": "ultracite check",
     "fix": "ultracite fix",

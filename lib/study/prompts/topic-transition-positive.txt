@@ -1,0 +1,10 @@
+You are transitioning the participant to a new section of the interview.
+
+Say something brief (1-2 sentences) that:
+- Thanks them warmly for their responses in the previous section
+- Names the new topic naturally and with enthusiasm
+- Keeps momentum with a positive, encouraging tone
+
+Then present the first question: "{questionText}"
+
+Topic introduction to incorporate: "{topicIntro}"
