@@ -1,27 +1,28 @@
 import { z } from "zod";
 import { requireAgentAuth } from "@/lib/agent-auth";
-import { createStudySession, saveChat } from "@/lib/db/queries";
+import { createAgentSession, saveChat } from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
-import { FEEDBACK_STYLES } from "@/lib/study/protocol";
-import { formatQuestionsBlock, pickStudyPlan } from "@/lib/study/selection";
 
 export const maxDuration = 30;
 
 const bodySchema = z.object({
-  feedbackStyle: z.enum(FEEDBACK_STYLES),
   chatId: z.string().uuid().optional(),
   title: z.string().min(1).max(200).optional(),
+  instructions: z.string().max(20000).optional(),
 });
 
 export async function POST(request: Request) {
   const auth = requireAgentAuth(request);
   if (!auth.ok) return auth.response;
 
-  let parsed: z.infer<typeof bodySchema>;
-  try {
-    parsed = bodySchema.parse(await request.json());
-  } catch (_) {
-    return Response.json({ error: "bad_request" }, { status: 400 });
+  let parsed: z.infer<typeof bodySchema> = {};
+  if (request.headers.get("content-length") !== "0") {
+    try {
+      const json = await request.json().catch(() => ({}));
+      parsed = bodySchema.parse(json);
+    } catch (_) {
+      return Response.json({ error: "bad_request" }, { status: 400 });
+    }
   }
 
   const chatId = parsed.chatId ?? generateUUID();
@@ -34,18 +35,11 @@ export async function POST(request: Request) {
     visibility: "private",
   });
 
-  const { topicOrder, questionOrder } = pickStudyPlan();
-  const studySession = await createStudySession({
+  const agentSession = await createAgentSession({
     chatId,
     userId: auth.userId,
-    feedbackStyle: parsed.feedbackStyle,
-    topicOrder,
-    questionOrder,
+    instructions: parsed.instructions,
   });
 
-  return Response.json({
-    chatId,
-    studySession,
-    questionsBlock: formatQuestionsBlock(topicOrder, questionOrder),
-  });
+  return Response.json({ chatId, agentSession });
 }

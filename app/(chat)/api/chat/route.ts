@@ -42,7 +42,6 @@ import { ChatbotError } from "@/lib/errors";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
-import { runStudyTurn } from "@/lib/study/turn";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
@@ -69,7 +68,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType, studyFeedbackStyle } =
+    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
       requestBody;
 
     const [, session] = await Promise.all([
@@ -180,46 +179,6 @@ export async function POST(request: Request) {
         ],
       });
     }
-
-    // ── Study Branch ─────────────────────────────────────────────
-    if (studyFeedbackStyle && message?.role === "user") {
-      const studyStream = createUIMessageStream({
-        execute: async ({ writer: dataStream }) => {
-          const messageId = generateUUID();
-          const { assistantMessage } = await runStudyTurn({
-            chatId: id,
-            userId: session.user.id,
-            userMessage: {
-              id: message.id,
-              role: "user",
-              parts: message.parts as { type: "text"; text: string }[],
-            },
-            feedbackStyle: studyFeedbackStyle,
-            persistUserMessage: false,
-            ensureChat: false,
-          });
-
-          const text = assistantMessage.parts
-            .filter((p) => p.type === "text")
-            .map((p) => p.text)
-            .join("");
-
-          dataStream.write({ type: "text-start", id: messageId });
-          if (text) {
-            dataStream.write({ type: "text-delta", id: messageId, delta: text });
-          }
-          dataStream.write({ type: "text-end", id: messageId });
-        },
-        generateId: generateUUID,
-        onError: (error) => {
-          console.error("Study stream error:", error);
-          return "Oops, an error occurred!";
-        },
-      });
-
-      return createUIMessageStreamResponse({ stream: studyStream });
-    }
-    // ── End Study Branch ─────────────────────────────────────────
 
     const modelConfig = chatModels.find((m) => m.id === chatModel);
     const modelCapabilities = await getCapabilities();

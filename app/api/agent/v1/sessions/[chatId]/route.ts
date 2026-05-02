@@ -1,8 +1,8 @@
 import { requireAgentAuth } from "@/lib/agent-auth";
 import {
+  getAgentSessionByChatId,
   getChatById,
   getMessagesByChatId,
-  getStudySessionByChatId,
 } from "@/lib/db/queries";
 
 export async function GET(
@@ -22,14 +22,14 @@ export async function GET(
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const [studySession, messages] = await Promise.all([
-    getStudySessionByChatId({ chatId }),
+  const [agentSession, messages] = await Promise.all([
+    getAgentSessionByChatId({ chatId }),
     getMessagesByChatId({ id: chatId }),
   ]);
 
   return Response.json({
     chatId,
-    studySession,
+    agentSession,
     messages: messages.map((m) => ({
       id: m.id,
       role: m.role,

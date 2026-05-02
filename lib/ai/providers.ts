@@ -33,12 +33,12 @@ export function getLanguageModel(modelId: string) {
     ? modelId.split("/").pop()!
     : modelId;
 
-  return openai(openAiModel);
+  return openai.responses(openAiModel);
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return openai("gpt-4o-mini");
+  return openai.responses("gpt-4o-mini");
 }

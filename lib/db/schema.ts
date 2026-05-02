@@ -135,9 +135,9 @@ export const stream = pgTable(
 
 export type Stream = InferSelectModel<typeof stream>;
 
-// ── Study ───────────────────────────────────────────────────────
+// ── Agent ───────────────────────────────────────────────────────
 
-export const studySession = pgTable("StudySession", {
+export const agentSession = pgTable("AgentSession", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   chatId: uuid("chatId")
     .notNull()
@@ -146,12 +146,10 @@ export const studySession = pgTable("StudySession", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
-  feedbackStyle: varchar("feedbackStyle").notNull(),
-  topicOrder: json("topicOrder").notNull(),
-  questionOrder: json("questionOrder").notNull(),
-  surveyData: json("surveyData"),
+  responseId: text("responseId"),
+  instructions: text("instructions"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   completedAt: timestamp("completedAt"),
 });
 
-export type StudySession = InferSelectModel<typeof studySession>;
+export type AgentSession = InferSelectModel<typeof agentSession>;

@@ -1,10 +1,17 @@
 import { z } from "zod";
 import { requireAgentAuth } from "@/lib/agent-auth";
-import { getChatById } from "@/lib/db/queries";
-import { runStudyTurn } from "@/lib/study/turn";
+import { openaiClient } from "@/lib/ai/providers";
+import {
+  getAgentSessionByChatId,
+  getChatById,
+  saveMessages,
+  updateAgentSession,
+} from "@/lib/db/queries";
 import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 60;
+
+const STUDY_MODEL = process.env.STUDY_MODEL ?? "gpt-4o-mini";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
@@ -35,20 +42,66 @@ export async function POST(
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
-  try {
-    const { assistantMessage, studySession } = await runStudyTurn({
-      chatId,
-      userId: auth.userId,
-      userMessage: {
-        id: parsed.messageId ?? generateUUID(),
+  const session = await getAgentSessionByChatId({ chatId });
+  if (!session) {
+    return Response.json({ error: "no_agent_session" }, { status: 404 });
+  }
+
+  const userMessageId = parsed.messageId ?? generateUUID();
+  await saveMessages({
+    messages: [
+      {
+        chatId,
+        id: userMessageId,
         role: "user",
         parts: [{ type: "text", text: parsed.text }],
+        attachments: [],
+        createdAt: new Date(),
       },
-    });
+    ],
+  });
 
-    return Response.json({ assistantMessage, studySession });
+  let response;
+  try {
+    response = await openaiClient.responses.create({
+      model: STUDY_MODEL,
+      input: parsed.text,
+      ...(session.instructions && !session.responseId
+        ? { instructions: session.instructions }
+        : {}),
+      ...(session.responseId
+        ? { previous_response_id: session.responseId }
+        : {}),
+    });
   } catch (error) {
     console.error("agent turn failed:", error);
     return Response.json({ error: "turn_failed" }, { status: 500 });
   }
+
+  const assistantText = response.output_text ?? "";
+  const assistantMessageId = generateUUID();
+
+  await saveMessages({
+    messages: [
+      {
+        chatId,
+        id: assistantMessageId,
+        role: "assistant",
+        parts: [{ type: "text", text: assistantText }],
+        attachments: [],
+        createdAt: new Date(),
+      },
+    ],
+  });
+
+  await updateAgentSession({ id: session.id, responseId: response.id });
+
+  return Response.json({
+    assistantMessage: {
+      id: assistantMessageId,
+      role: "assistant",
+      parts: [{ type: "text", text: assistantText }],
+    },
+    responseId: response.id,
+  });
 }

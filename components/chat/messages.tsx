@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import type { FeedbackStyle } from "@/lib/study/protocol";
 import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
@@ -23,8 +22,6 @@ type MessagesProps = {
   isLoading?: boolean;
   selectedModelId: string;
   onEditMessage?: (message: ChatMessage) => void;
-  isStudyMode?: boolean;
-  onStartStudy?: (feedbackStyle: FeedbackStyle) => void;
 };
 
 function PureMessages({
@@ -40,8 +37,6 @@ function PureMessages({
   isLoading,
   selectedModelId: _selectedModelId,
   onEditMessage,
-  isStudyMode,
-  onStartStudy,
 }: MessagesProps) {
   const {
     containerRef: messagesContainerRef,
@@ -69,10 +64,7 @@ function PureMessages({
       {messages.length === 0 && !isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
           <div className="pointer-events-auto">
-            <Greeting
-              isStudyMode={isStudyMode}
-              onStartStudy={onStartStudy}
-            />
+            <Greeting />
           </div>
         </div>
       )}

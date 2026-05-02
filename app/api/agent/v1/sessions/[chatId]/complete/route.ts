@@ -1,17 +1,10 @@
-import { z } from "zod";
 import { requireAgentAuth } from "@/lib/agent-auth";
 import {
+  getAgentSessionByChatId,
   getChatById,
   getMessagesByChatId,
-  getStudySessionByChatId,
-  updateStudySession,
+  updateAgentSession,
 } from "@/lib/db/queries";
-
-const bodySchema = z
-  .object({
-    surveyData: z.unknown().optional(),
-  })
-  .strict();
 
 export async function POST(
   request: Request,
@@ -30,35 +23,21 @@ export async function POST(
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
-  let body: z.infer<typeof bodySchema> = {};
-  if (request.headers.get("content-length") !== "0") {
-    try {
-      const json = await request.json().catch(() => ({}));
-      body = bodySchema.parse(json);
-    } catch (_) {
-      return Response.json({ error: "bad_request" }, { status: 400 });
-    }
+  const session = await getAgentSessionByChatId({ chatId });
+  if (!session) {
+    return Response.json({ error: "no_agent_session" }, { status: 404 });
   }
 
-  const studySession = await getStudySessionByChatId({ chatId });
-  if (!studySession) {
-    return Response.json({ error: "no_study_session" }, { status: 404 });
-  }
-
-  await updateStudySession({
-    id: studySession.id,
-    completedAt: new Date(),
-    ...(body.surveyData !== undefined && { surveyData: body.surveyData }),
-  });
+  await updateAgentSession({ id: session.id, completedAt: new Date() });
 
   const [refreshed, messages] = await Promise.all([
-    getStudySessionByChatId({ chatId }),
+    getAgentSessionByChatId({ chatId }),
     getMessagesByChatId({ id: chatId }),
   ]);
 
   return Response.json({
     chatId,
-    studySession: refreshed,
+    agentSession: refreshed,
     messages: messages.map((m) => ({
       id: m.id,
       role: m.role,

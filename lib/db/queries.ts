@@ -26,8 +26,8 @@ import {
   message,
   type Suggestion,
   stream,
-  type StudySession,
-  studySession,
+  type AgentSession,
+  agentSession,
   suggestion,
   type User,
   user,
@@ -633,88 +633,67 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   }
 }
 
-// ── Study Queries ──────────────────────────────────────────────
+// ── Agent Queries ──────────────────────────────────────────────
 
-export async function createStudySession({
+export async function createAgentSession({
   chatId,
   userId,
-  feedbackStyle,
-  topicOrder,
-  questionOrder,
+  instructions,
 }: {
   chatId: string;
   userId: string;
-  feedbackStyle: string;
-  topicOrder: number[];
-  questionOrder: number[][];
+  instructions?: string | null;
 }) {
   try {
     const [session] = await db
-      .insert(studySession)
-      .values({ chatId, userId, feedbackStyle, topicOrder, questionOrder })
+      .insert(agentSession)
+      .values({ chatId, userId, instructions: instructions ?? null })
       .returning();
     return session;
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create study session",
+      "Failed to create agent session",
     );
   }
 }
 
-export async function getStudySessionByChatId({
+export async function getAgentSessionByChatId({
   chatId,
 }: {
   chatId: string;
-}): Promise<StudySession | null> {
+}): Promise<AgentSession | null> {
   try {
     const [session] = await db
       .select()
-      .from(studySession)
-      .where(eq(studySession.chatId, chatId));
+      .from(agentSession)
+      .where(eq(agentSession.chatId, chatId));
     return session ?? null;
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to get study session",
+      "Failed to get agent session",
     );
   }
 }
 
-export async function updateStudySession({
+export async function updateAgentSession({
   id,
   ...patch
 }: {
   id: string;
-  surveyData?: unknown;
+  responseId?: string;
   completedAt?: Date;
 }) {
   try {
     return await db
-      .update(studySession)
+      .update(agentSession)
       .set(patch)
-      .where(eq(studySession.id, id));
+      .where(eq(agentSession.id, id));
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to update study session",
-    );
-  }
-}
-
-export async function getAllStudySessions() {
-  try {
-    return await db
-      .select({
-        StudySession: studySession,
-        Chat: chat,
-      })
-      .from(studySession)
-      .leftJoin(chat, eq(studySession.chatId, chat.id));
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get study sessions",
+      "Failed to update agent session",
     );
   }
 }
