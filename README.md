@@ -69,3 +69,59 @@ pnpm dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
+
+## Agent API provisioning
+
+The bearer-authenticated agent API writes normal `Chat`, `Message_v2`, and `StudySession` rows. Because `Chat.userId` and `StudySession.userId` reference `User.id`, each environment needs one service-account user whose id matches `AGENT_USER_ID`.
+
+Required environment variables:
+
+- `AGENT_API_KEY`: shared bearer secret for `/api/agent/v1/*`.
+- `AGENT_USER_ID`: stable UUID for the service-account `User` row.
+- `OPENAI_API_KEY`: used by study turns through the OpenAI Responses API.
+
+Optional helpers:
+
+- `AGENT_API_BASE`: base URL for `scripts/test-agent-api.ts`; defaults to `http://localhost:3000`.
+- `STUDY_EXPORT_KEY`: enables the study export smoke-test check.
+- `STUDY_MODEL`: overrides the study-turn model; defaults to `gpt-4o-mini`.
+- `STUDY_PROMPT_VERSION`: overrides the hosted study prompt version; defaults to `2`.
+
+After migrations are applied in an environment, seed the service user once:
+
+```bash
+pnpm db:migrate
+pnpm db:seed-agent
+```
+
+The seed is idempotent and equivalent to:
+
+```sql
+INSERT INTO "User" (id, email, password, "isAnonymous", "emailVerified")
+VALUES ('<AGENT_USER_ID UUID>', 'agent-service@local', NULL, FALSE, FALSE)
+ON CONFLICT (id) DO NOTHING;
+```
+
+Verify the seed:
+
+```sql
+SELECT id, email, "isAnonymous"
+FROM "User"
+WHERE id = '<AGENT_USER_ID UUID>';
+```
+
+After an agent smoke test, verify writes:
+
+```sql
+SELECT id, title, "createdAt"
+FROM "Chat"
+WHERE "userId" = '<AGENT_USER_ID UUID>'
+ORDER BY "createdAt" DESC
+LIMIT 5;
+
+SELECT id, "chatId", "feedbackStyle", "completedAt"
+FROM "StudySession"
+WHERE "userId" = '<AGENT_USER_ID UUID>'
+ORDER BY "createdAt" DESC
+LIMIT 5;
+```

@@ -1,8 +1,13 @@
 import { customProvider } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
+import OpenAI from "openai";
 import { isTestEnvironment } from "../constants";
 
 const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+export const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 

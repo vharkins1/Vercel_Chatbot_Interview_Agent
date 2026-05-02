@@ -638,18 +638,20 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
 export async function createStudySession({
   chatId,
   userId,
-  condition,
+  feedbackStyle,
   topicOrder,
+  questionOrder,
 }: {
   chatId: string;
   userId: string;
-  condition: string;
-  topicOrder?: number[];
+  feedbackStyle: string;
+  topicOrder: number[];
+  questionOrder: number[][];
 }) {
   try {
     const [session] = await db
       .insert(studySession)
-      .values({ chatId, userId, condition, ...(topicOrder !== undefined && { topicOrder }) })
+      .values({ chatId, userId, feedbackStyle, topicOrder, questionOrder })
       .returning();
     return session;
   } catch (_error) {
@@ -684,14 +686,8 @@ export async function updateStudySession({
   ...patch
 }: {
   id: string;
-  phase?: string;
-  currentTopicIndex?: number;
-  currentQuestionIndex?: number;
   surveyData?: unknown;
   completedAt?: Date;
-  topicOrder?: number[];
-  topicSummaries?: string[];
-  retryCount?: number;
 }) {
   try {
     return await db

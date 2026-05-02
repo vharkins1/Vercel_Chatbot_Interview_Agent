@@ -4,7 +4,8 @@ import {
   getStudySessionByChatId,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
-import { getQuestion, getTopicIntro, resolveTopicOrder } from "@/lib/study/protocol";
+import { formatQuestionsBlock, pickStudyPlan } from "@/lib/study/selection";
+import { FEEDBACK_STYLES, type FeedbackStyle } from "@/lib/study/protocol";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -29,30 +30,38 @@ export async function POST(request: Request) {
     return new ChatbotError("unauthorized:chat").toResponse();
   }
 
-  const { chatId, condition } = await request.json();
+  const { chatId, feedbackStyle } = await request.json();
 
-  if (!chatId || !condition) {
+  if (
+    !chatId ||
+    !feedbackStyle ||
+    !FEEDBACK_STYLES.includes(feedbackStyle as FeedbackStyle)
+  ) {
     return new ChatbotError("bad_request:api").toResponse();
   }
 
-  // Check if session already exists
   const existing = await getStudySessionByChatId({ chatId });
   if (existing) {
-    return Response.json({ studySession: existing });
+    return Response.json({
+      studySession: existing,
+      questionsBlock: formatQuestionsBlock(
+        existing.topicOrder as number[],
+        existing.questionOrder as number[][],
+      ),
+    });
   }
 
+  const { topicOrder, questionOrder } = pickStudyPlan();
   const studySession = await createStudySession({
     chatId,
     userId: session.user.id,
-    condition,
+    feedbackStyle,
+    topicOrder,
+    questionOrder,
   });
 
-  // Return session + first question info
-  const topicOrder = resolveTopicOrder();
-  const firstQuestion = await getQuestion(0, 0, topicOrder);
   return Response.json({
     studySession,
-    firstQuestion,
-    firstTopicIntro: getTopicIntro(0, topicOrder),
+    questionsBlock: formatQuestionsBlock(topicOrder, questionOrder),
   });
 }

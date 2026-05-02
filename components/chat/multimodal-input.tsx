@@ -53,7 +53,6 @@ function PureMultimodalInput({
   editingMessage,
   onCancelEdit,
   isLoading,
-  isStudyMode,
 }: {
   chatId: string;
   input: string;
@@ -73,7 +72,6 @@ function PureMultimodalInput({
   editingMessage?: ChatMessage | null;
   onCancelEdit?: () => void;
   isLoading?: boolean;
-  isStudyMode?: boolean;
 }) {
   const router = useRouter();
   const { setTheme, resolvedTheme } = useTheme();
@@ -111,7 +109,7 @@ function PureMultimodalInput({
     const val = event.target.value;
     setInput(val);
 
-    if (!isStudyMode && val.startsWith("/") && !val.includes(" ")) {
+    if (val.startsWith("/") && !val.includes(" ")) {
       setSlashOpen(true);
       setSlashQuery(val.slice(1));
       setSlashIndex(0);
@@ -364,7 +362,7 @@ function PureMultimodalInput({
       />
 
       <div className="relative">
-        {!isStudyMode && slashOpen && (
+        {slashOpen && (
           <SlashCommandMenu
             onClose={() => setSlashOpen(false)}
             onSelect={handleSlashSelect}
@@ -466,23 +464,17 @@ function PureMultimodalInput({
             }
           }}
           placeholder={
-            editingMessage
-              ? "Edit your message..."
-              : isStudyMode
-                ? "Type your response..."
-                : "Ask anything..."
+            editingMessage ? "Edit your message..." : "Ask anything..."
           }
           ref={textareaRef}
           value={input}
         />
         <PromptInputFooter className="px-3 pb-3">
           <PromptInputTools>
-            {!isStudyMode && (
-              <AttachmentsButton
-                fileInputRef={fileInputRef}
-                status={status}
-              />
-            )}
+            <AttachmentsButton
+              fileInputRef={fileInputRef}
+              status={status}
+            />
           </PromptInputTools>
 
           {status === "submitted" ? (
@@ -528,9 +520,6 @@ export const MultimodalInput = memo(
       return false;
     }
     if (prevProps.isLoading !== nextProps.isLoading) {
-      return false;
-    }
-    if (prevProps.isStudyMode !== nextProps.isStudyMode) {
       return false;
     }
     if (prevProps.messages.length !== nextProps.messages.length) {

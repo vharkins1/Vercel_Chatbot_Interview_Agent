@@ -2,7 +2,6 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
-  integer,
   json,
   pgTable,
   primaryKey,
@@ -147,14 +146,10 @@ export const studySession = pgTable("StudySession", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
-  condition: varchar("condition").notNull(), // "responsive" | "unresponsive"
-  currentTopicIndex: integer("currentTopicIndex").notNull().default(0),
-  currentQuestionIndex: integer("currentQuestionIndex").notNull().default(0),
-  phase: varchar("phase").notNull().default("welcome"),
-  surveyData: json("surveyData"), // null until survey submitted
-  topicOrder: json("topicOrder"), // shuffled topic order, e.g. [2, 0, 1]
-  topicSummaries: json("topicSummaries"), // summaries of completed topics (string[])
-  retryCount: integer("retryCount").notNull().default(0), // re-ask attempts for current question
+  feedbackStyle: varchar("feedbackStyle").notNull(),
+  topicOrder: json("topicOrder").notNull(),
+  questionOrder: json("questionOrder").notNull(),
+  surveyData: json("surveyData"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   completedAt: timestamp("completedAt"),
 });

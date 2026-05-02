@@ -2,16 +2,17 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
-import type { Condition } from "@/lib/study/protocol";
+import { type FeedbackStyle } from "@/lib/study/protocol";
 
 export function Greeting({
   isStudyMode,
   onStartStudy,
 }: {
   isStudyMode?: boolean;
-  onStartStudy?: (condition: Condition) => void;
+  onStartStudy?: (feedbackStyle: FeedbackStyle) => void;
 }) {
-  const [condition, setCondition] = useState<Condition>("positive");
+  const [feedbackStyle, setFeedbackStyle] = useState<FeedbackStyle>("positive");
+
   if (!isStudyMode) {
     return (
       <div className="flex flex-col items-center px-4" key="overview">
@@ -62,24 +63,24 @@ export function Greeting({
         transition={{ delay: 0.65, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-card/50 px-3 py-2">
-          <label className="text-xs text-muted-foreground" htmlFor="condition-select">
-            Feedback type:
+          <label className="text-xs text-muted-foreground" htmlFor="feedback-style-select">
+            Feedback style:
           </label>
           <select
-            id="condition-select"
+            id="feedback-style-select"
             className="bg-transparent text-xs text-foreground outline-none"
-            value={condition}
-            onChange={(e) => setCondition(e.target.value as Condition)}
+            value={feedbackStyle}
+            onChange={(e) => setFeedbackStyle(e.target.value as FeedbackStyle)}
           >
-            <option value="positive">Positive (warm)</option>
-            <option value="negative">Negative (critical)</option>
-            <option value="neutral">Neutral (clinical)</option>
+            <option value="positive">Positive</option>
+            <option value="negative">Negative</option>
+            <option value="neutral">Neutral</option>
           </select>
         </div>
 
         <button
           type="button"
-          onClick={() => onStartStudy?.(condition)}
+          onClick={() => onStartStudy?.(feedbackStyle)}
           className="rounded-lg bg-foreground px-6 py-2.5 text-sm font-medium text-background transition-all hover:opacity-90 active:scale-[0.98]"
         >
           Begin Interview

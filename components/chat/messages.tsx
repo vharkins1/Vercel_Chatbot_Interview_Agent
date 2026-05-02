@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import type { Condition, StudyPhase } from "@/lib/study/protocol";
+import type { FeedbackStyle } from "@/lib/study/protocol";
 import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
@@ -24,8 +24,7 @@ type MessagesProps = {
   selectedModelId: string;
   onEditMessage?: (message: ChatMessage) => void;
   isStudyMode?: boolean;
-  studyPhase?: StudyPhase;
-  onStartStudy?: (condition: Condition) => void;
+  onStartStudy?: (feedbackStyle: FeedbackStyle) => void;
 };
 
 function PureMessages({
@@ -42,7 +41,6 @@ function PureMessages({
   selectedModelId: _selectedModelId,
   onEditMessage,
   isStudyMode,
-  studyPhase,
   onStartStudy,
 }: MessagesProps) {
   const {

@@ -2,21 +2,10 @@
 
 import { useEffect } from "react";
 import { initialArtifactData, useArtifact } from "@/hooks/use-artifact";
-import type { StudyPhase } from "@/lib/study/protocol";
 import { artifactDefinitions } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 
-type StudyState = {
-  phase: StudyPhase;
-  topicIndex: number;
-  questionIndex: number;
-};
-
-export function DataStreamHandler({
-  onStudyStateChange,
-}: {
-  onStudyStateChange?: (state: StudyState) => void;
-}) {
+export function DataStreamHandler() {
   const { dataStream, setDataStream } = useDataStream();
 
   const { artifact, setArtifact, setMetadata } = useArtifact();
@@ -31,17 +20,6 @@ export function DataStreamHandler({
 
     for (const delta of newDeltas) {
       if (delta.type === "data-chat-title") {
-        continue;
-      }
-
-      // Handle study state events
-      if (delta.type === "data-study-state") {
-        try {
-          const state = JSON.parse(delta.data as string) as StudyState;
-          onStudyStateChange?.(state);
-        } catch {
-          // ignore parse errors
-        }
         continue;
       }
 
@@ -103,7 +81,7 @@ export function DataStreamHandler({
         }
       });
     }
-  }, [dataStream, setArtifact, setMetadata, artifact, setDataStream, onStudyStateChange]);
+  }, [dataStream, setArtifact, setMetadata, artifact, setDataStream]);
 
   return null;
 }
