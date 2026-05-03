@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   lt,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -28,6 +29,10 @@ import {
   stream,
   type AgentSession,
   agentSession,
+  type Participant,
+  participant,
+  type PartnerAgent,
+  partnerAgent,
   suggestion,
   type User,
   user,
@@ -694,6 +699,202 @@ export async function updateAgentSession({
     throw new ChatbotError(
       "bad_request:database",
       "Failed to update agent session",
+    );
+  }
+}
+
+export async function incrementAgentSessionTokens({
+  id,
+  by,
+}: {
+  id: string;
+  by: number;
+}): Promise<void> {
+  if (by <= 0) {
+    return;
+  }
+
+  try {
+    await db
+      .update(agentSession)
+      .set({ totalTokens: sql`${agentSession.totalTokens} + ${by}` })
+      .where(eq(agentSession.id, id));
+  } catch (_error) {
+    // Best-effort accounting; do not fail a successful turn on stat updates.
+  }
+}
+
+// ── Partner agents & participants ──────────────────────────────
+
+export async function getPartnerAgentByKeyHash(
+  keyHash: string,
+): Promise<PartnerAgent | null> {
+  try {
+    const [row] = await db
+      .select()
+      .from(partnerAgent)
+      .where(eq(partnerAgent.keyHash, keyHash))
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to look up partner agent",
+    );
+  }
+}
+
+export async function touchPartnerAgentLastUsed(id: string): Promise<void> {
+  try {
+    await db
+      .update(partnerAgent)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(partnerAgent.id, id));
+  } catch (_error) {
+    // best-effort; do not throw
+  }
+}
+
+export async function createPartnerAgent({
+  name,
+  keyHash,
+}: {
+  name: string;
+  keyHash: string;
+}): Promise<PartnerAgent> {
+  try {
+    const [row] = await db
+      .insert(partnerAgent)
+      .values({ name, keyHash })
+      .returning();
+    return row;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create partner agent",
+    );
+  }
+}
+
+export async function upsertParticipant({
+  partnerAgentId,
+  externalId,
+  metadata,
+}: {
+  partnerAgentId: string;
+  externalId: string;
+  metadata?: unknown;
+}): Promise<Participant> {
+  try {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(participant)
+        .where(
+          and(
+            eq(participant.partnerAgentId, partnerAgentId),
+            eq(participant.externalId, externalId),
+          ),
+        )
+        .limit(1);
+
+      if (existing) {
+        if (metadata !== undefined) {
+          const merged = {
+            ...((existing.metadata as Record<string, unknown> | null) ?? {}),
+            ...(metadata as Record<string, unknown>),
+          };
+          const [updated] = await tx
+            .update(participant)
+            .set({ metadata: merged })
+            .where(eq(participant.id, existing.id))
+            .returning();
+          return updated;
+        }
+        return existing;
+      }
+
+      const syntheticEmail = `participant-${generateUUID()}@partner.invalid`;
+      const [newUser] = await tx
+        .insert(user)
+        .values({
+          email: syntheticEmail,
+          isAnonymous: true,
+        })
+        .returning();
+
+      const [created] = await tx
+        .insert(participant)
+        .values({
+          partnerAgentId,
+          externalId,
+          userId: newUser.id,
+          metadata: (metadata as Record<string, unknown> | undefined) ?? null,
+        })
+        .returning();
+      return created;
+    });
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to upsert participant",
+    );
+  }
+}
+
+export async function createAgentChatAndSession({
+  chatId,
+  partnerAgentId,
+  participantId,
+  userId,
+  title,
+  instructions,
+  promptId,
+  promptVersion,
+}: {
+  chatId: string;
+  partnerAgentId: string;
+  participantId: string;
+  userId: string;
+  title: string;
+  instructions?: string | null;
+  promptId: string;
+  promptVersion: string;
+}): Promise<{ chat: Chat; agentSession: AgentSession }> {
+  try {
+    return await db.transaction(async (tx) => {
+      const [createdChat] = await tx
+        .insert(chat)
+        .values({
+          id: chatId,
+          createdAt: new Date(),
+          userId,
+          title,
+          visibility: "private",
+          partnerAgentId,
+          participantId,
+        })
+        .returning();
+
+      const [createdSession] = await tx
+        .insert(agentSession)
+        .values({
+          chatId,
+          userId,
+          partnerAgentId,
+          participantId,
+          instructions: instructions ?? null,
+          promptId,
+          promptVersion,
+        })
+        .returning();
+
+      return { chat: createdChat, agentSession: createdSession };
+    });
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create agent chat and session",
     );
   }
 }

@@ -4,6 +4,7 @@ import { openaiClient } from "@/lib/ai/providers";
 import {
   getAgentSessionByChatId,
   getChatById,
+  incrementAgentSessionTokens,
   saveMessages,
   updateAgentSession,
 } from "@/lib/db/queries";
@@ -26,7 +27,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ chatId: string }> }
 ) {
-  const auth = requireAgentAuth(request);
+  const auth = await requireAgentAuth(request);
   if (!auth.ok) {
     return auth.response;
   }
@@ -44,7 +45,7 @@ export async function POST(
   if (!chat) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
-  if (chat.userId !== auth.userId) {
+  if (chat.partnerAgentId !== auth.partnerAgentId) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
@@ -71,8 +72,8 @@ export async function POST(
   try {
     response = await openaiClient.responses.create({
       prompt: {
-        id: POSITIVE_PROMPT_ID,
-        version: POSITIVE_PROMPT_VERSION,
+        id: session.promptId ?? POSITIVE_PROMPT_ID,
+        version: session.promptVersion ?? POSITIVE_PROMPT_VERSION,
       },
       input: parsed.text,
       text: {
@@ -109,6 +110,10 @@ export async function POST(
   });
 
   await updateAgentSession({ id: session.id, responseId: response.id });
+  await incrementAgentSessionTokens({
+    id: session.id,
+    by: response.usage?.total_tokens ?? 0,
+  });
 
   return Response.json({
     assistantMessage: {

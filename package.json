@@ -15,7 +15,7 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "db:seed-agent": "tsx scripts/seed-agent-user.ts",
+    "db:create-partner": "tsx scripts/create-partner-agent.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {

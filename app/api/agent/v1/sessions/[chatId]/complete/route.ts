@@ -10,7 +10,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ chatId: string }> },
 ) {
-  const auth = requireAgentAuth(request);
+  const auth = await requireAgentAuth(request);
   if (!auth.ok) return auth.response;
 
   const { chatId } = await params;
@@ -19,7 +19,7 @@ export async function POST(
   if (!chat) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
-  if (chat.userId !== auth.userId) {
+  if (chat.partnerAgentId !== auth.partnerAgentId) {
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
