@@ -428,7 +428,7 @@ function PureMultimodalInput({
           ref={textareaRef}
           value={input}
         />
-        <PromptInputFooter className="px-3 pb-3">
+        <PromptInputFooter className="flex justify-end px-3 pb-3">
           {status === "submitted" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
