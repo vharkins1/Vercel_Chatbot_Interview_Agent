@@ -23,6 +23,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import type { Vote } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import { INTERVIEW_START_PROMPT } from "@/lib/interview";
 import type { ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 
@@ -48,9 +49,6 @@ type ActiveChatContextValue = {
 };
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
-
-const INTERVIEW_START_PROMPT =
-  "Please start the interview by greeting the candidate and asking the first question.";
 
 function extractChatId(pathname: string): string | null {
   const match = pathname.match(/\/chat\/([^/]+)/);

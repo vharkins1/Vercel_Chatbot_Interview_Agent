@@ -1,5 +1,6 @@
 import { auth } from "@/app/(auth)/auth";
 import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
+import { isInterviewStartMessage } from "@/lib/interview";
 import { convertToUIMessages } from "@/lib/utils";
 
 export async function GET(request: Request) {
@@ -33,9 +34,12 @@ export async function GET(request: Request) {
   }
 
   const isReadonly = !session?.user || session.user.id !== chat.userId;
+  const visibleMessages = convertToUIMessages(messages).filter(
+    (message) => !isInterviewStartMessage(message)
+  );
 
   return Response.json({
-    messages: convertToUIMessages(messages),
+    messages: visibleMessages,
     visibility: chat.visibility,
     userId: chat.userId,
     isReadonly,
