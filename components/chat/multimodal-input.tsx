@@ -7,7 +7,6 @@ import { ArrowUpIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
-  type ChangeEvent,
   type Dispatch,
   memo,
   type SetStateAction,
@@ -25,10 +24,9 @@ import {
   PromptInputFooter,
   PromptInputSubmit,
   PromptInputTextarea,
-  PromptInputTools,
 } from "../ai-elements/prompt-input";
 import { Button } from "../ui/button";
-import { PaperclipIcon, StopIcon } from "./icons";
+import { StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import {
   type SlashCommand,
@@ -44,15 +42,15 @@ function PureMultimodalInput({
   stop,
   attachments,
   setAttachments,
-  messages,
+  messages: _messages,
   setMessages,
   sendMessage,
   className,
-  selectedModelId,
-  onModelChange,
+  selectedModelId: _selectedModelId,
+  onModelChange: _onModelChange,
   editingMessage,
   onCancelEdit,
-  isLoading,
+  isLoading: _isLoading,
 }: {
   chatId: string;
   input: string;
@@ -175,7 +173,6 @@ function PureMultimodalInput({
     }
   };
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
   const [slashOpen, setSlashOpen] = useState(false);
   const [slashQuery, setSlashQuery] = useState("");
@@ -252,32 +249,6 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const handleFileChange = useCallback(
-    async (event: ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []);
-
-      setUploadQueue(files.map((file) => file.name));
-
-      try {
-        const uploadPromises = files.map((file) => uploadFile(file));
-        const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
-        );
-
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...successfullyUploadedAttachments,
-        ]);
-      } catch (_error) {
-        toast.error("Failed to upload files");
-      } finally {
-        setUploadQueue([]);
-      }
-    },
-    [setAttachments, uploadFile]
-  );
-
   const handlePaste = useCallback(
     async (event: ClipboardEvent) => {
       const items = event.clipboardData?.items;
@@ -352,15 +323,6 @@ function PureMultimodalInput({
         </div>
       )}
 
-      <input
-        className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
-        multiple
-        onChange={handleFileChange}
-        ref={fileInputRef}
-        tabIndex={-1}
-        type="file"
-      />
-
       <div className="relative">
         {slashOpen && (
           <SlashCommandMenu
@@ -406,9 +368,6 @@ function PureMultimodalInput({
                   setAttachments((currentAttachments) =>
                     currentAttachments.filter((a) => a.url !== attachment.url)
                   );
-                  if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                  }
                 }}
               />
             ))}
@@ -470,13 +429,6 @@ function PureMultimodalInput({
           value={input}
         />
         <PromptInputFooter className="px-3 pb-3">
-          <PromptInputTools>
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              status={status}
-            />
-          </PromptInputTools>
-
           {status === "submitted" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
@@ -529,31 +481,6 @@ export const MultimodalInput = memo(
     return true;
   }
 );
-
-function PureAttachmentsButton({
-  fileInputRef,
-  status,
-}: {
-  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers<ChatMessage>["status"];
-}) {
-  return (
-    <Button
-      className="h-7 w-7 rounded-lg border border-border/40 p-1 transition-colors text-foreground hover:border-border hover:text-foreground"
-      data-testid="attachments-button"
-      disabled={status !== "ready"}
-      onClick={(event) => {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }}
-      variant="ghost"
-    >
-      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
-    </Button>
-  );
-}
-
-const AttachmentsButton = memo(PureAttachmentsButton);
 
 function PureStopButton({
   stop,

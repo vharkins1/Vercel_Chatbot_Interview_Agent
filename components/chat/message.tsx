@@ -16,22 +16,21 @@ import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
 import { SparklesIcon } from "./icons";
-import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import { Weather } from "./weather";
 
 const PurePreviewMessage = ({
   addToolApprovalResponse,
-  chatId,
+  chatId: _chatId,
   message,
-  vote,
+  vote: _vote,
   isLoading,
   setMessages: _setMessages,
   regenerate: _regenerate,
   isReadonly,
   requiresScrollPadding: _requiresScrollPadding,
-  onEdit,
+  onEdit: _onEdit,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -304,17 +303,6 @@ const PurePreviewMessage = ({
     return null;
   });
 
-  const actions = !isReadonly && (
-    <MessageActions
-      chatId={chatId}
-      isLoading={isLoading}
-      key={`action-${message.id}`}
-      message={message}
-      onEdit={onEdit ? () => onEdit(message) : undefined}
-      vote={vote}
-    />
-  );
-
   const content = isThinking ? (
     <div className="flex h-[calc(13px*1.65)] items-center text-[13px] leading-[1.65]">
       <Shimmer className="font-medium" duration={1}>
@@ -325,7 +313,6 @@ const PurePreviewMessage = ({
     <>
       {attachments}
       {parts}
-      {actions}
     </>
   );
 
