@@ -156,7 +156,6 @@ export async function POST(request: Request) {
           reasoning: {},
           max_output_tokens: 2048,
           store: true,
-          include: ["web_search_call.action.sources"],
         });
 
         const assistantText = response.output_text ?? "";

@@ -83,7 +83,6 @@ export async function POST(
       reasoning: {},
       max_output_tokens: 2048,
       store: true,
-      include: ["web_search_call.action.sources"],
       ...(session.responseId
         ? { previous_response_id: session.responseId }
         : {}),
