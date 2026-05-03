@@ -31,7 +31,7 @@ const POSITIVE_PROMPT_ID =
   process.env.OPENAI_POSITIVE_PROMPT_ID ??
   "pmpt_69f4f87ea46081948f36ba086c12c54b030113096792d76e";
 const POSITIVE_PROMPT_VERSION =
-  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
+  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "2";
 
 type ResponsesMessageInput = {
   role: "user" | "assistant";
@@ -148,14 +148,15 @@ export async function POST(request: Request) {
             version: POSITIVE_PROMPT_VERSION,
           },
           input: responseInput,
-          reasoning: {
-            summary: "auto",
+          text: {
+            format: {
+              type: "text",
+            },
           },
+          reasoning: {},
+          max_output_tokens: 2048,
           store: true,
-          include: [
-            "reasoning.encrypted_content",
-            "web_search_call.action.sources",
-          ],
+          include: ["web_search_call.action.sources"],
         });
 
         const assistantText = response.output_text ?? "";
