@@ -49,6 +49,9 @@ type ActiveChatContextValue = {
 
 const ActiveChatContext = createContext<ActiveChatContextValue | null>(null);
 
+const INTERVIEW_START_PROMPT =
+  "Please start the interview by greeting the candidate and asking the first question.";
+
 function extractChatId(pathname: string): string | null {
   const match = pathname.match(/\/chat\/([^/]+)/);
   return match ? match[1] : null;
@@ -204,11 +207,13 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
   }, [chatData, isNewChat]);
 
   const hasAppendedQueryRef = useRef(false);
+  const autoStartedChatIdsRef = useRef(new Set<string>());
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const query = params.get("query");
     if (query && !hasAppendedQueryRef.current) {
       hasAppendedQueryRef.current = true;
+      autoStartedChatIdsRef.current.add(chatId);
       window.history.replaceState(
         {},
         "",
@@ -220,6 +225,28 @@ export function ActiveChatProvider({ children }: { children: ReactNode }) {
       });
     }
   }, [sendMessage, chatId]);
+
+  useEffect(() => {
+    if (
+      !isNewChat ||
+      messages.length > 0 ||
+      status !== "ready" ||
+      autoStartedChatIdsRef.current.has(chatId)
+    ) {
+      return;
+    }
+
+    autoStartedChatIdsRef.current.add(chatId);
+    window.history.replaceState(
+      {},
+      "",
+      `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/chat/${chatId}`
+    );
+    sendMessage({
+      role: "user" as const,
+      parts: [{ type: "text", text: INTERVIEW_START_PROMPT }],
+    });
+  }, [chatId, isNewChat, messages.length, sendMessage, status]);
 
   useAutoResume({
     autoResume: !isNewChat && !!chatData,
