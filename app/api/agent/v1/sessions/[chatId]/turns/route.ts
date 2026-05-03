@@ -11,7 +11,11 @@ import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 60;
 
-const STUDY_MODEL = process.env.STUDY_MODEL ?? "gpt-4o-mini";
+const POSITIVE_PROMPT_ID =
+  process.env.OPENAI_POSITIVE_PROMPT_ID ??
+  "pmpt_69f4f87ea46081948f36ba086c12c54b030113096792d76e";
+const POSITIVE_PROMPT_VERSION =
+  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
@@ -20,10 +24,12 @@ const bodySchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ chatId: string }> },
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   const auth = requireAgentAuth(request);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return auth.response;
+  }
 
   const { chatId } = await params;
 
@@ -61,14 +67,22 @@ export async function POST(
     ],
   });
 
-  let response;
+  let response: Awaited<ReturnType<typeof openaiClient.responses.create>>;
   try {
     response = await openaiClient.responses.create({
-      model: STUDY_MODEL,
+      prompt: {
+        id: POSITIVE_PROMPT_ID,
+        version: POSITIVE_PROMPT_VERSION,
+      },
       input: parsed.text,
-      ...(session.instructions && !session.responseId
-        ? { instructions: session.instructions }
-        : {}),
+      reasoning: {
+        summary: "auto",
+      },
+      store: true,
+      include: [
+        "reasoning.encrypted_content",
+        "web_search_call.action.sources",
+      ],
       ...(session.responseId
         ? { previous_response_id: session.responseId }
         : {}),
