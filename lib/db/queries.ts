@@ -891,7 +891,8 @@ export async function createAgentChatAndSession({
 
       return { chat: createdChat, agentSession: createdSession };
     });
-  } catch (_error) {
+  } catch (error) {
+    console.error("[createAgentChatAndSession] error:", error);
     throw new ChatbotError(
       "bad_request:database",
       "Failed to create agent chat and session",

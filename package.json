@@ -16,6 +16,9 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "db:create-partner": "tsx scripts/create-partner-agent.ts",
+    "db:rotate-partner": "tsx scripts/rotate-partner-key.ts",
+    "db:unrevoke-partner": "tsx scripts/unrevoke-partner.ts",
+    "db:list-partners": "tsx scripts/list-partners.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {
