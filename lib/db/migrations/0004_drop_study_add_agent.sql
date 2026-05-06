@@ -1,4 +1,4 @@
-DROP TABLE "StudySession";--> statement-breakpoint
+DROP TABLE IF EXISTS "StudySession";--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "AgentSession" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"chatId" uuid NOT NULL,
