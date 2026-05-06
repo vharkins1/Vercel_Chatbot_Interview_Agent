@@ -60,6 +60,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
+        <link href="/agent-docs" rel="describedby" />
         <script
           // biome-ignore lint/security/noDangerouslySetInnerHtml: "Required"
           dangerouslySetInnerHTML={{
