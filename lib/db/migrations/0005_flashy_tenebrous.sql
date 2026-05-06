@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS "PartnerAgent" (
 	CONSTRAINT "PartnerAgent_keyHash_unique" UNIQUE("keyHash")
 );
 --> statement-breakpoint
-ALTER TABLE "Chat" ADD COLUMN "partnerAgentId" uuid;--> statement-breakpoint
-ALTER TABLE "Chat" ADD COLUMN "participantId" uuid;--> statement-breakpoint
-ALTER TABLE "AgentSession" ADD COLUMN "partnerAgentId" uuid;--> statement-breakpoint
-ALTER TABLE "AgentSession" ADD COLUMN "participantId" uuid;--> statement-breakpoint
+ALTER TABLE "Chat" ADD COLUMN IF NOT EXISTS "partnerAgentId" uuid;--> statement-breakpoint
+ALTER TABLE "Chat" ADD COLUMN IF NOT EXISTS "participantId" uuid;--> statement-breakpoint
+ALTER TABLE "AgentSession" ADD COLUMN IF NOT EXISTS "partnerAgentId" uuid;--> statement-breakpoint
+ALTER TABLE "AgentSession" ADD COLUMN IF NOT EXISTS "participantId" uuid;--> statement-breakpoint
 DO $$ BEGIN
  ALTER TABLE "Participant" ADD CONSTRAINT "Participant_partnerAgentId_PartnerAgent_id_fk" FOREIGN KEY ("partnerAgentId") REFERENCES "public"."PartnerAgent"("id") ON DELETE cascade ON UPDATE no action;
 EXCEPTION
