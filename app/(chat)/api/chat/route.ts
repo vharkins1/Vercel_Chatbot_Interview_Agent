@@ -20,6 +20,10 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
+import {
+  ensureChatQuestions,
+  formatQuestionsForPrompt,
+} from "@/lib/interview/select-questions";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
@@ -29,9 +33,9 @@ export const maxDuration = 60;
 
 const POSITIVE_PROMPT_ID =
   process.env.OPENAI_POSITIVE_PROMPT_ID ??
-  "pmpt_69f4f87ea46081948f36ba086c12c54b030113096792d76e";
+  "pmpt_69f7b7d4852c8194823ae04758ff45b90036c2b9bf3e67fd";
 const POSITIVE_PROMPT_VERSION =
-  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "2";
+  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
 
 type ResponsesMessageInput = {
   role: "user" | "assistant";
@@ -140,12 +144,16 @@ export async function POST(request: Request) {
     ];
     const responseInput = toResponsesInput(uiMessages);
 
+    const selectedQuestions = await ensureChatQuestions(id);
+    const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
+
     const stream = createUIMessageStream({
       execute: async ({ writer: dataStream }) => {
         const response = await openaiClient.responses.create({
           prompt: {
             id: POSITIVE_PROMPT_ID,
             version: POSITIVE_PROMPT_VERSION,
+            variables: { questions: questionsBlock },
           },
           input: responseInput,
           text: {

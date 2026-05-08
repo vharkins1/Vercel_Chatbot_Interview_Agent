@@ -11,9 +11,9 @@ export const maxDuration = 30;
 
 const POSITIVE_PROMPT_ID =
   process.env.OPENAI_POSITIVE_PROMPT_ID ??
-  "pmpt_69f4f87ea46081948f36ba086c12c54b030113096792d76e";
+  "pmpt_69f7b7d4852c8194823ae04758ff45b90036c2b9bf3e67fd";
 const POSITIVE_PROMPT_VERSION =
-  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "2";
+  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
 
 const bodySchema = z.object({
   chatId: z.string().uuid().optional(),

@@ -218,3 +218,60 @@ export const participant = pgTable(
 );
 
 export type Participant = InferSelectModel<typeof participant>;
+
+// ── Interview question bank ─────────────────────────────────────
+
+export const topic = pgTable("Topic", {
+  id: text("id").primaryKey().notNull(),
+  name: text("name").notNull(),
+  displayOrder: integer("displayOrder"),
+});
+
+export type Topic = InferSelectModel<typeof topic>;
+
+export const question = pgTable(
+  "Question",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    topicId: text("topicId")
+      .notNull()
+      .references(() => topic.id),
+    text: text("text").notNull(),
+    isActive: boolean("isActive").notNull().default(true),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    topicIdx: index("Question_topicId_idx").on(table.topicId),
+    topicTextUq: uniqueIndex("Question_topicId_text_uq").on(
+      table.topicId,
+      table.text,
+    ),
+  }),
+);
+
+export type Question = InferSelectModel<typeof question>;
+
+export const chatQuestion = pgTable(
+  "ChatQuestion",
+  {
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    questionId: uuid("questionId")
+      .notNull()
+      .references(() => question.id),
+    topicId: text("topicId")
+      .notNull()
+      .references(() => topic.id),
+    topicOrder: integer("topicOrder").notNull(),
+    questionOrder: integer("questionOrder").notNull(),
+    questionTextSnapshot: text("questionTextSnapshot").notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.chatId, table.questionId] }),
+    chatIdx: index("ChatQuestion_chatId_idx").on(table.chatId),
+    topicIdx: index("ChatQuestion_topicId_idx").on(table.topicId),
+  }),
+);
+
+export type ChatQuestion = InferSelectModel<typeof chatQuestion>;

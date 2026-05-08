@@ -8,15 +8,19 @@ import {
   saveMessages,
   updateAgentSession,
 } from "@/lib/db/queries";
+import {
+  ensureChatQuestions,
+  formatQuestionsForPrompt,
+} from "@/lib/interview/select-questions";
 import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 60;
 
 const POSITIVE_PROMPT_ID =
   process.env.OPENAI_POSITIVE_PROMPT_ID ??
-  "pmpt_69f4f87ea46081948f36ba086c12c54b030113096792d76e";
+  "pmpt_69f7b7d4852c8194823ae04758ff45b90036c2b9bf3e67fd";
 const POSITIVE_PROMPT_VERSION =
-  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "2";
+  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
 
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
@@ -68,12 +72,16 @@ export async function POST(
     ],
   });
 
+  const selectedQuestions = await ensureChatQuestions(chatId);
+  const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
+
   let response: Awaited<ReturnType<typeof openaiClient.responses.create>>;
   try {
     response = await openaiClient.responses.create({
       prompt: {
         id: session.promptId ?? POSITIVE_PROMPT_ID,
         version: session.promptVersion ?? POSITIVE_PROMPT_VERSION,
+        variables: { questions: questionsBlock },
       },
       input: parsed.text,
       text: {
