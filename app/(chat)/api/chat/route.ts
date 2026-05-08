@@ -17,6 +17,7 @@ import {
   getMessagesByChatId,
   saveChat,
   saveMessages,
+  userExists,
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatbotError } from "@/lib/errors";
@@ -91,6 +92,26 @@ export async function POST(request: Request) {
 
     if (!session?.user) {
       return new ChatbotError("unauthorized:chat").toResponse();
+    }
+
+    if (!(await userExists(session.user.id))) {
+      const res = new ChatbotError(
+        "unauthorized:chat",
+        "stale_session"
+      ).toResponse();
+      // Cookie was issued for a User row that has since been deleted (e.g. by
+      // db:wipe-chat-data). Clear both possible NextAuth session cookies so
+      // the next request gets redirected through /api/auth/guest and a fresh
+      // User row is created.
+      res.headers.append(
+        "Set-Cookie",
+        "authjs.session-token=; Path=/; Max-Age=0; SameSite=Lax"
+      );
+      res.headers.append(
+        "Set-Cookie",
+        "__Secure-authjs.session-token=; Path=/; Max-Age=0; Secure; SameSite=Lax"
+      );
+      return res;
     }
 
     await checkIpRateLimit(ipAddress(request));

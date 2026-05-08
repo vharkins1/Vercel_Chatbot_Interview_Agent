@@ -53,6 +53,22 @@ export async function getUser(email: string): Promise<User[]> {
   }
 }
 
+export async function userExists(id: string): Promise<boolean> {
+  try {
+    const rows = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, id))
+      .limit(1);
+    return rows.length > 0;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to check user existence"
+    );
+  }
+}
+
 export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 

@@ -33,6 +33,12 @@ export async function fetchWithErrorHandlers(
 
     if (!response.ok) {
       const { code, cause } = await response.json();
+      // Server cleared a stale session cookie (User row was wiped under us).
+      // Reload so the proxy can redirect through /api/auth/guest and mint a
+      // fresh User. Without this the next send would hit the same 401.
+      if (cause === 'stale_session' && typeof window !== 'undefined') {
+        window.location.reload();
+      }
       throw new ChatbotError(code as ErrorCode, cause);
     }
 
