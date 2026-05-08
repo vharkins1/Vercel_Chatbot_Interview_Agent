@@ -10,7 +10,7 @@ This supersedes the earlier "drop participant tracking" plan.
 Already exists. Backs both human web users and synthetic per-participant users. Synthetic users have `isAnonymous = true` and a `participant-<uuid>@partner.invalid` email so the existing FKs (chat ownership, documents, suggestions) work without special-casing.
 
 ### `PartnerAgent`
-One row per agent platform that delivers participants. Today there's a single row (openclaw); the table is here so adding another partner is a `pnpm db:create-partner` call rather than a schema change.
+One row per partner that delivers participants. Self-issued keys (via `POST /api/agent/v1/keys`) create one row per key, named `<label>-<random>`; operator-minted keys (`pnpm db:create-partner <name>`) use the supplied name. Browser/Human sessions have no `PartnerAgent` row attached to their `Chat` (`partnerAgentId IS NULL`).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -145,7 +145,7 @@ Documents agent API usage, partner key provisioning, prompt env vars, and study 
 
 ```bash
 PROD=https://<latest-prod-url>
-KEY=<raw key for openclaw>
+KEY=<raw key (self-issued via /api/agent/v1/keys, or operator-minted)>
 
 # Start a session for participant P-001.
 CHAT_ID=$(curl -s -X POST "$PROD/api/agent/v1/sessions" \

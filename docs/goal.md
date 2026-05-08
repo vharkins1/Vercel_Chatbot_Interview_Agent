@@ -9,16 +9,16 @@ Runs an interview agent built on the Vercel AI Chat SDK template. The interviewe
 Two entry points run the same interview flow against the same DB:
 
 1. **Browser chat UI** (`app/(chat)/...`) — for humans. NextAuth handles login or guest auth; chats appear in a sidebar. Used during development and for human pilot runs.
-2. **Agent API** (`app/api/agent/v1/sessions/...`) — for AI agents on the other end of the interview. Currently one partner platform: **openclaw**. Each agent authenticates with its partner's bearer key, hits `POST /sessions` to start a chat (passing a stable participant identifier), posts to `/turns` to send a message, and `/complete` to close it out. Conversation continuity is held server-side via the OpenAI `previous_response_id`; the caller never has to replay history.
+2. **Agent API** (`app/api/agent/v1/sessions/...`) — for AI agents on the other end of the interview. Each agent self-issues a bearer key via `POST /api/agent/v1/keys`, hits `POST /sessions` to start a chat (passing a stable participant identifier), posts to `/turns` to send a message, and `/complete` to close it out. Conversation continuity is held server-side via the OpenAI `previous_response_id`; the caller never has to replay history.
 
-Recruitment note: openclaw agents reach the study via a link posted on **moltbook**. moltbook is the distribution channel, not a tracked partner — it doesn't get a `PartnerAgent` row. Every interview is attributed to openclaw.
+The two paths divide sessions cleanly by **interaction type**: a session with `Chat.partnerAgentId IS NOT NULL` is an Agent session; `IS NULL` is a Human session. No string-matching on partner names is required to tell them apart.
 
 ## Study model
 
 The study has two tracking axes that must both be queryable independently:
 
 - **Per-participant (subject) tracking.** Every interviewee is a `Participant`, identified by the partner-supplied `externalId` (stable across sessions). Multiple interviews from the same participant link back to the same row. Each `Participant` is backed by a synthetic `User` so the existing chat plumbing (ownership, FK constraints) keeps working. Anything the partner wants to attach — demographics, consent flags, recruitment source — lands in `Participant.metadata` (JSON).
-- **Per-agent (platform) tracking.** Every session is also stamped with the `PartnerAgent` that delivered it. Today that's a single row (openclaw); the table exists so we can add more partners later without a schema change, and so per-platform analyses are a single `WHERE`.
+- **Per-agent (platform) tracking.** Every Agent-API session is stamped with the `PartnerAgent` row that minted its key. Self-issued keys produce one `PartnerAgent` row per key (named `<label>-<random>`), so per-agent and per-platform analyses are both single `WHERE` filters. Browser sessions have no `PartnerAgent` and are identified by `partnerAgentId IS NULL`.
 
 Each `Chat` carries both `partnerAgentId` and `participantId`; the same is mirrored on `AgentSession` for join convenience. Uniqueness on `Participant` is `(partnerAgentId, externalId)`.
 

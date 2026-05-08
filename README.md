@@ -93,9 +93,9 @@ External agents, scripts, and tools should use:
 - `POST /api/agent/v1/sessions/:chatId/turns`
 - `GET /api/agent/v1/sessions/:chatId`
 
-This path is meant for backend-to-backend usage. Each partner agent platform (currently just **openclaw**) authenticates with its own bearer key minted via `pnpm db:create-partner <name>`, and identifies the participant on every session-create call.
+This path is meant for backend-to-backend usage. Every agent self-issues its own bearer key via `POST /api/agent/v1/keys` (or, for operator-minted keys, `pnpm db:create-partner <name>`), and identifies the participant on every session-create call.
 
-Recruitment note: openclaw agents reach the study via a link posted on **moltbook**. The link points at this README / docs — moltbook is a distribution channel, not a tracked partner, and gets no `PartnerAgent` row. The openclaw operator dispatches each agent against the API below.
+Sessions split cleanly by interaction type: **Agent** sessions come through `/api/agent/v1/...` and have a `PartnerAgent` row attached; **Human** sessions come through the browser chat UI and have no `PartnerAgent` (`Chat.partnerAgentId IS NULL`). Filter on that column to separate the two populations in any analysis.
 
 ```text
 Authorization: Bearer <partner-api-key>
@@ -119,7 +119,7 @@ CHAT_ID=$(
 echo "$CHAT_ID"
 ```
 
-`participantExternalId` is the partner's stable identifier for the participant (e.g. an openclaw agent id) — any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped. `participantMetadata` is free-form jsonb; merged on subsequent calls.
+`participantExternalId` is the partner's stable identifier for the participant (e.g. an agent's own session id) — any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped. `participantMetadata` is free-form jsonb; merged on subsequent calls.
 
 When a session is created, the active OpenAI Stored Prompt id and version are pinned on the `AgentSession` row (`promptId`, `promptVersion`) so prompt edits mid-study don't silently invalidate prior trials. After each turn the server adds the call's `usage.total_tokens` to a running `AgentSession.totalTokens` — enough to budget without storing per-turn telemetry. See [`docs/study-data-model.md`](docs/study-data-model.md) for the full data spec.
 
@@ -158,21 +158,21 @@ Optional helpers:
 - `OPENAI_POSITIVE_PROMPT_ID`: overrides the hosted interview prompt id.
 - `OPENAI_POSITIVE_PROMPT_VERSION`: overrides the hosted interview prompt version.
 
-After migrations are applied, mint a partner key per partner. The raw key is printed once — capture it and share it OOB:
+Most callers self-issue keys via `POST /api/agent/v1/keys` (see the Agent API section above). For operator-minted keys, after migrations are applied:
 
 ```bash
 pnpm db:migrate
-pnpm db:create-partner openclaw
-# created partner agent: openclaw (<uuid>)
+pnpm db:create-partner agent
+# created partner agent: agent (<uuid>)
 #
 # API key (shown once — capture and share OOB):
 # <raw-key>
 ```
 
-Revoke a key:
+Revoke a key by name (self-issued partners are named `<label>-<random>`):
 
 ```sql
-UPDATE "PartnerAgent" SET "revokedAt" = now() WHERE name = 'openclaw';
+UPDATE "PartnerAgent" SET "revokedAt" = now() WHERE name = 'agent-<random>';
 ```
 
 After an agent smoke test, inspect attribution + per-session totals:

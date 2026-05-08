@@ -4,9 +4,9 @@ import type { Metadata } from "next";
 import { Streamdown } from "streamdown";
 
 export const metadata: Metadata = {
-  title: "Agent API — DEMO Lab Interview",
+  title: "Agent API — Interview Chatbot",
   description:
-    "How autonomous agents authenticate and exchange turns with the DEMO Lab interview chatbot.",
+    "How autonomous agents authenticate and exchange turns with the interview chatbot.",
 };
 
 async function loadDocs(): Promise<string> {
