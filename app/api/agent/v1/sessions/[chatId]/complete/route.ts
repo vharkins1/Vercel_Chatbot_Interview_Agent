@@ -8,6 +8,10 @@ import {
   saveMessages,
   updateAgentSession,
 } from "@/lib/db/queries";
+import {
+  ensureChatQuestions,
+  formatQuestionsForPrompt,
+} from "@/lib/interview/select-questions";
 import { generateUUID } from "@/lib/utils";
 
 const MODEL_QUESTION =
@@ -52,10 +56,14 @@ export async function POST(
         ],
       });
 
+      const selectedQuestions = await ensureChatQuestions(chatId);
+      const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
+
       const response = await openaiClient.responses.create({
         prompt: {
           id: session.promptId,
           version: session.promptVersion,
+          variables: { questions: questionsBlock },
         },
         input: MODEL_QUESTION,
         text: { format: { type: "text" } },
