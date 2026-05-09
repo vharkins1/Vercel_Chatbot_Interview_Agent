@@ -12,8 +12,8 @@ async function main() {
     await sql.begin(async (tx) => {
       await tx.unsafe(`
         TRUNCATE TABLE
-          "Vote_v2", "Stream", "Suggestion", "Document",
-          "Message_v2", "AgentSession", "Chat", "Participant"
+          "ChatQuestion", "Message_v2", "AgentSession",
+          "Chat", "Participant", "Invitation"
         RESTART IDENTITY CASCADE;
       `);
       await tx.unsafe(`DELETE FROM "User";`);

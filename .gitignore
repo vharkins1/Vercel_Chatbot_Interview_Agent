@@ -33,3 +33,6 @@ lib/study/prompts/generated.ts
 .claude/
 .revert-point
 
+# Local CSV exports from scripts/export-{messages,sessions}.ts
+artifacts/*.csv
+

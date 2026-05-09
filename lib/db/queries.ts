@@ -13,8 +13,6 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import type { ArtifactKind } from "@/components/chat/artifact";
-import type { VisibilityType } from "@/components/chat/visibility-selector";
 import { ChatbotError } from "../errors";
 import { selectQuestionsForChat } from "../interview/select-questions";
 import { generateUUID } from "../utils";
@@ -23,20 +21,17 @@ import {
   type Chat,
   chat,
   type DBMessage,
-  document,
   message,
-  type Suggestion,
-  stream,
   type AgentSession,
   agentSession,
+  type Invitation,
+  invitation,
   type Participant,
   participant,
   type PartnerAgent,
   partnerAgent,
-  suggestion,
   type User,
   user,
-  vote,
 } from "./schema";
 import { generateHashedPassword } from "./utils";
 
@@ -105,7 +100,7 @@ export async function saveChat({
   id: string;
   userId: string;
   title: string;
-  visibility: VisibilityType;
+  visibility: "private" | "public";
 }) {
   try {
     return await db.insert(chat).values({
@@ -122,9 +117,7 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
   try {
-    await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
-    await db.delete(stream).where(eq(stream.chatId, id));
 
     const [chatsDeleted] = await db
       .delete(chat)
@@ -152,9 +145,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const chatIds = userChats.map((c) => c.id);
 
-    await db.delete(vote).where(inArray(vote.chatId, chatIds));
     await db.delete(message).where(inArray(message.chatId, chatIds));
-    await db.delete(stream).where(inArray(stream.chatId, chatIds));
 
     const deletedChats = await db
       .delete(chat)
@@ -296,210 +287,6 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   }
 }
 
-export async function voteMessage({
-  chatId,
-  messageId,
-  type,
-}: {
-  chatId: string;
-  messageId: string;
-  type: "up" | "down";
-}) {
-  try {
-    const [existingVote] = await db
-      .select()
-      .from(vote)
-      .where(and(eq(vote.messageId, messageId)));
-
-    if (existingVote) {
-      return await db
-        .update(vote)
-        .set({ isUpvoted: type === "up" })
-        .where(and(eq(vote.messageId, messageId), eq(vote.chatId, chatId)));
-    }
-    return await db.insert(vote).values({
-      chatId,
-      messageId,
-      isUpvoted: type === "up",
-    });
-  } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to vote message");
-  }
-}
-
-export async function getVotesByChatId({ id }: { id: string }) {
-  try {
-    return await db.select().from(vote).where(eq(vote.chatId, id));
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get votes by chat id"
-    );
-  }
-}
-
-export async function saveDocument({
-  id,
-  title,
-  kind,
-  content,
-  userId,
-}: {
-  id: string;
-  title: string;
-  kind: ArtifactKind;
-  content: string;
-  userId: string;
-}) {
-  try {
-    return await db
-      .insert(document)
-      .values({
-        id,
-        title,
-        kind,
-        content,
-        userId,
-        createdAt: new Date(),
-      })
-      .returning();
-  } catch (_error) {
-    throw new ChatbotError("bad_request:database", "Failed to save document");
-  }
-}
-
-export async function updateDocumentContent({
-  id,
-  content,
-}: {
-  id: string;
-  content: string;
-}) {
-  try {
-    const docs = await db
-      .select()
-      .from(document)
-      .where(eq(document.id, id))
-      .orderBy(desc(document.createdAt))
-      .limit(1);
-
-    const latest = docs[0];
-    if (!latest) {
-      throw new ChatbotError("not_found:database", "Document not found");
-    }
-
-    return await db
-      .update(document)
-      .set({ content })
-      .where(and(eq(document.id, id), eq(document.createdAt, latest.createdAt)))
-      .returning();
-  } catch (_error) {
-    if (_error instanceof ChatbotError) {
-      throw _error;
-    }
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to update document content"
-    );
-  }
-}
-
-export async function getDocumentsById({ id }: { id: string }) {
-  try {
-    const documents = await db
-      .select()
-      .from(document)
-      .where(eq(document.id, id))
-      .orderBy(asc(document.createdAt));
-
-    return documents;
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get documents by id"
-    );
-  }
-}
-
-export async function getDocumentById({ id }: { id: string }) {
-  try {
-    const [selectedDocument] = await db
-      .select()
-      .from(document)
-      .where(eq(document.id, id))
-      .orderBy(desc(document.createdAt));
-
-    return selectedDocument;
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get document by id"
-    );
-  }
-}
-
-export async function deleteDocumentsByIdAfterTimestamp({
-  id,
-  timestamp,
-}: {
-  id: string;
-  timestamp: Date;
-}) {
-  try {
-    await db
-      .delete(suggestion)
-      .where(
-        and(
-          eq(suggestion.documentId, id),
-          gt(suggestion.documentCreatedAt, timestamp)
-        )
-      );
-
-    return await db
-      .delete(document)
-      .where(and(eq(document.id, id), gt(document.createdAt, timestamp)))
-      .returning();
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to delete documents by id after timestamp"
-    );
-  }
-}
-
-export async function saveSuggestions({
-  suggestions,
-}: {
-  suggestions: Suggestion[];
-}) {
-  try {
-    return await db.insert(suggestion).values(suggestions);
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to save suggestions"
-    );
-  }
-}
-
-export async function getSuggestionsByDocumentId({
-  documentId,
-}: {
-  documentId: string;
-}) {
-  try {
-    return await db
-      .select()
-      .from(suggestion)
-      .where(eq(suggestion.documentId, documentId));
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get suggestions by document id"
-    );
-  }
-}
-
 export async function getMessageById({ id }: { id: string }) {
   try {
     return await db.select().from(message).where(eq(message.id, id));
@@ -531,12 +318,6 @@ export async function deleteMessagesByChatIdAfterTimestamp({
     );
 
     if (messageIds.length > 0) {
-      await db
-        .delete(vote)
-        .where(
-          and(eq(vote.chatId, chatId), inArray(vote.messageId, messageIds))
-        );
-
       return await db
         .delete(message)
         .where(
@@ -612,43 +393,6 @@ export async function getMessageCountByUserId({
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get message count by user id"
-    );
-  }
-}
-
-export async function createStreamId({
-  streamId,
-  chatId,
-}: {
-  streamId: string;
-  chatId: string;
-}) {
-  try {
-    await db
-      .insert(stream)
-      .values({ id: streamId, chatId, createdAt: new Date() });
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to create stream id"
-    );
-  }
-}
-
-export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
-  try {
-    const streamIds = await db
-      .select({ id: stream.id })
-      .from(stream)
-      .where(eq(stream.chatId, chatId))
-      .orderBy(asc(stream.createdAt))
-      .execute();
-
-    return streamIds.map(({ id }) => id);
-  } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to get stream ids by chat id"
     );
   }
 }
@@ -866,6 +610,7 @@ export async function createAgentChatAndSession({
   instructions,
   promptId,
   promptVersion,
+  condition,
 }: {
   chatId: string;
   partnerAgentId: string;
@@ -875,6 +620,7 @@ export async function createAgentChatAndSession({
   instructions?: string | null;
   promptId: string;
   promptVersion: string;
+  condition?: string | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession }> {
   try {
     return await db.transaction(async (tx) => {
@@ -901,6 +647,7 @@ export async function createAgentChatAndSession({
           instructions: instructions ?? null,
           promptId,
           promptVersion,
+          condition: condition ?? null,
         })
         .returning();
 
@@ -913,6 +660,101 @@ export async function createAgentChatAndSession({
     throw new ChatbotError(
       "bad_request:database",
       "Failed to create agent chat and session",
+    );
+  }
+}
+
+// ── Invitations ─────────────────────────────────────────────────
+
+export async function createInvitation({
+  jti,
+  condition,
+  expiresAt,
+  batchLabel,
+}: {
+  jti: string;
+  condition: string;
+  expiresAt: Date;
+  batchLabel?: string | null;
+}): Promise<Invitation> {
+  try {
+    const [row] = await db
+      .insert(invitation)
+      .values({
+        jti,
+        condition,
+        expiresAt,
+        batchLabel: batchLabel ?? null,
+      })
+      .returning();
+    return row;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create invitation",
+    );
+  }
+}
+
+export async function getInvitationByJti({
+  jti,
+}: {
+  jti: string;
+}): Promise<Invitation | undefined> {
+  try {
+    const [row] = await db
+      .select()
+      .from(invitation)
+      .where(eq(invitation.jti, jti))
+      .limit(1);
+    return row;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to load invitation",
+    );
+  }
+}
+
+export type RedeemInvitationResult =
+  | { ok: true; condition: string }
+  | { ok: false; reason: "already_redeemed" | "not_found" };
+
+export async function redeemInvitation({
+  jti,
+  chatId,
+  externalId,
+}: {
+  jti: string;
+  chatId: string;
+  externalId: string;
+}): Promise<RedeemInvitationResult> {
+  try {
+    const rows = await db
+      .update(invitation)
+      .set({
+        redeemedAt: new Date(),
+        redeemedByChatId: chatId,
+        redeemedByExternalId: externalId,
+      })
+      .where(
+        and(eq(invitation.jti, jti), sql`${invitation.redeemedAt} IS NULL`),
+      )
+      .returning({ condition: invitation.condition });
+
+    if (rows.length > 0) {
+      return { ok: true, condition: rows[0].condition };
+    }
+
+    const existing = await getInvitationByJti({ jti });
+    if (!existing) {
+      return { ok: false, reason: "not_found" };
+    }
+    return { ok: false, reason: "already_redeemed" };
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to redeem invitation",
     );
   }
 }

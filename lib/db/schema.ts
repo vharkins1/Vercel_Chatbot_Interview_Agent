@@ -1,7 +1,6 @@
 import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
-  foreignKey,
   index,
   integer,
   json,
@@ -64,89 +63,6 @@ export const message = pgTable("Message_v2", {
 
 export type DBMessage = InferSelectModel<typeof message>;
 
-export const vote = pgTable(
-  "Vote_v2",
-  {
-    chatId: uuid("chatId")
-      .notNull()
-      .references(() => chat.id),
-    messageId: uuid("messageId")
-      .notNull()
-      .references(() => message.id),
-    isUpvoted: boolean("isUpvoted").notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.chatId, table.messageId] }),
-  })
-);
-
-export type Vote = InferSelectModel<typeof vote>;
-
-export const document = pgTable(
-  "Document",
-  {
-    id: uuid("id").notNull().defaultRandom(),
-    createdAt: timestamp("createdAt").notNull(),
-    title: text("title").notNull(),
-    content: text("content"),
-    kind: varchar("text", { enum: ["text", "code", "image", "sheet"] })
-      .notNull()
-      .default("text"),
-    userId: uuid("userId")
-      .notNull()
-      .references(() => user.id),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.id, table.createdAt] }),
-  })
-);
-
-export type Document = InferSelectModel<typeof document>;
-
-export const suggestion = pgTable(
-  "Suggestion",
-  {
-    id: uuid("id").notNull().defaultRandom(),
-    documentId: uuid("documentId").notNull(),
-    documentCreatedAt: timestamp("documentCreatedAt").notNull(),
-    originalText: text("originalText").notNull(),
-    suggestedText: text("suggestedText").notNull(),
-    description: text("description"),
-    isResolved: boolean("isResolved").notNull().default(false),
-    userId: uuid("userId")
-      .notNull()
-      .references(() => user.id),
-    createdAt: timestamp("createdAt").notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.id] }),
-    documentRef: foreignKey({
-      columns: [table.documentId, table.documentCreatedAt],
-      foreignColumns: [document.id, document.createdAt],
-    }),
-  })
-);
-
-export type Suggestion = InferSelectModel<typeof suggestion>;
-
-export const stream = pgTable(
-  "Stream",
-  {
-    id: uuid("id").notNull().defaultRandom(),
-    chatId: uuid("chatId").notNull(),
-    createdAt: timestamp("createdAt").notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.id] }),
-    chatRef: foreignKey({
-      columns: [table.chatId],
-      foreignColumns: [chat.id],
-    }),
-  })
-);
-
-export type Stream = InferSelectModel<typeof stream>;
-
 // ── Agent ───────────────────────────────────────────────────────
 
 export const agentSession = pgTable(
@@ -164,6 +80,7 @@ export const agentSession = pgTable(
     instructions: text("instructions"),
     promptId: text("promptId"),
     promptVersion: text("promptVersion"),
+    condition: text("condition"),
     totalTokens: integer("totalTokens").notNull().default(0),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     completedAt: timestamp("completedAt"),
@@ -218,6 +135,30 @@ export const participant = pgTable(
 );
 
 export type Participant = InferSelectModel<typeof participant>;
+
+// ── Invitations ─────────────────────────────────────────────────
+
+export const invitation = pgTable(
+  "Invitation",
+  {
+    jti: text("jti").primaryKey().notNull(),
+    condition: text("condition").notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    redeemedAt: timestamp("redeemedAt"),
+    redeemedByChatId: uuid("redeemedByChatId"),
+    redeemedByExternalId: text("redeemedByExternalId"),
+    batchLabel: text("batchLabel"),
+  },
+  (table) => ({
+    batchIdx: index("Invitation_batchLabel_idx").on(table.batchLabel),
+    redeemedChatIdx: index("Invitation_redeemedByChatId_idx").on(
+      table.redeemedByChatId,
+    ),
+  }),
+);
+
+export type Invitation = InferSelectModel<typeof invitation>;
 
 // ── Interview question bank ─────────────────────────────────────
 

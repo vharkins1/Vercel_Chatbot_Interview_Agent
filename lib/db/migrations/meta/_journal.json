@@ -64,6 +64,20 @@
       "when": 1793000060000,
       "tag": "0008_seed_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793000120000,
+      "tag": "0009_ambiguous_grey_gargoyle",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793000180000,
+      "tag": "0010_drop_template_tables",
+      "breakpoints": true
     }
   ]
 }

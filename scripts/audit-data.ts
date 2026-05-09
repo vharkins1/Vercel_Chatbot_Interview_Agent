@@ -16,12 +16,9 @@ async function main() {
         (SELECT COUNT(*) FROM "AgentSession")   AS agent_sessions,
         (SELECT COUNT(*) FROM "Participant")    AS participants,
         (SELECT COUNT(*) FROM "PartnerAgent")   AS partner_agents,
+        (SELECT COUNT(*) FROM "Invitation")     AS invitations,
         (SELECT COUNT(*) FROM "User")           AS users,
-        (SELECT COUNT(*) FROM "User" WHERE "isAnonymous" = true) AS anonymous_users,
-        (SELECT COUNT(*) FROM "Vote_v2")        AS votes,
-        (SELECT COUNT(*) FROM "Stream")         AS streams,
-        (SELECT COUNT(*) FROM "Document")       AS documents,
-        (SELECT COUNT(*) FROM "Suggestion")     AS suggestions
+        (SELECT COUNT(*) FROM "User" WHERE "isAnonymous" = true) AS anonymous_users
     `;
     console.log(JSON.stringify(counts[0], null, 2));
   } finally {

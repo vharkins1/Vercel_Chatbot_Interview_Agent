@@ -16,12 +16,6 @@ import { generateUUID } from "@/lib/utils";
 
 export const maxDuration = 60;
 
-const POSITIVE_PROMPT_ID =
-  process.env.OPENAI_POSITIVE_PROMPT_ID ??
-  "pmpt_69f7b7d4852c8194823ae04758ff45b90036c2b9bf3e67fd";
-const POSITIVE_PROMPT_VERSION =
-  process.env.OPENAI_POSITIVE_PROMPT_VERSION ?? "1";
-
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
   messageId: z.string().uuid().optional(),
@@ -57,6 +51,12 @@ export async function POST(
   if (!session) {
     return Response.json({ error: "no_agent_session" }, { status: 404 });
   }
+  if (!session.promptId || !session.promptVersion) {
+    return Response.json(
+      { error: "session_missing_prompt" },
+      { status: 500 },
+    );
+  }
 
   const userMessageId = parsed.messageId ?? generateUUID();
   await saveMessages({
@@ -79,8 +79,8 @@ export async function POST(
   try {
     response = await openaiClient.responses.create({
       prompt: {
-        id: session.promptId ?? POSITIVE_PROMPT_ID,
-        version: session.promptVersion ?? POSITIVE_PROMPT_VERSION,
+        id: session.promptId,
+        version: session.promptVersion,
         variables: { questions: questionsBlock },
       },
       input: parsed.text,
