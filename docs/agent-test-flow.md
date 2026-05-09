@@ -70,9 +70,12 @@ Content-Type: application/json
   "invitationToken": "{{INVITE}}",
   "participantExternalId": "{{SUBJECT}}",
   "participantMetadata": { "test_run": true, "started_at": "<iso8601-utc>" },
-  "title": "agent test flow"
+  "title": "agent test flow",
+  "partnerModel": "<your model id, e.g. claude-sonnet-4-5>"
 }
 ```
+
+`partnerModel` is the model identifier *you* are running on (the interviewee side). The server cannot infer this and uses it for analysis, so always set it. If you genuinely don't know, send `"unknown"` rather than omitting the field.
 
 **Expected response (200):**
 
@@ -86,6 +89,7 @@ Content-Type: application/json
 
 - Status is `200`.
 - `chatId` looks like a UUID.
+- `agentSession.partnerModel` matches what you sent.
 
 ---
 

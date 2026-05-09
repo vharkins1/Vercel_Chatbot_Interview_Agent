@@ -57,11 +57,30 @@ One row per agent-driven session, 1:1 with `Chat` (via `chatId` unique).
 | `instructions` | text nullable | Per-session instructions override sent at create time. |
 | `promptId` | text | Which OpenAI Stored Prompt is in use for this session. Pinned at create. |
 | `promptVersion` | text | Pinned version for this session. Edits to the OpenAI prompt mid-study won't silently invalidate prior trials. |
+| `condition` | text nullable | One of `positive` / `neutral` / `negative`, copied from the redeemed `Invitation`. Selects which prompt id was pinned. |
+| `interviewerModel` | text nullable | Our system's model, captured automatically from `response.model` in the OpenAI Responses API on the first turn that returns a value. |
+| `partnerModel` | text nullable | Self-declared model id of the partner agent (the interviewee). Sent in the request body on `POST /sessions` and/or `POST /turns`. Last write wins. |
 | `totalTokens` | integer | Running sum across all turns in this session. Updated after each `/turns` call. Lets us budget and audit cost without storing anything per turn. |
 | `createdAt` | timestamp | |
 | `completedAt` | timestamp nullable | Set by `POST /complete`. |
 
 Same CHECK as `Chat`: `partnerAgentId` and `participantId` paired.
+
+### `Invitation`
+One row per minted invitation token. Each token is a one-shot capability that pins a session to a specific condition.
+
+| Field | Type | Notes |
+|---|---|---|
+| `jti` | text PK | JWT id, also the row identity. |
+| `condition` | text | `positive` / `neutral` / `negative`. Determines which OpenAI prompt the redeeming session uses. |
+| `expiresAt` | timestamp | Defense-in-depth alongside the JWT `exp` claim. |
+| `createdAt` | timestamp | |
+| `redeemedAt` | timestamp nullable | Set atomically on first successful redeem. |
+| `redeemedByChatId` | uuid nullable | The chat that consumed this invitation. |
+| `redeemedByExternalId` | text nullable | The participant who consumed it. |
+| `batchLabel` | text nullable | Free-form label so an operator can group a research batch. |
+
+Tokens are minted via `pnpm db:create-invitations --count N --batch <label>`. Redemption is via `POST /sessions { invitationToken }`; the route does an atomic `UPDATE … WHERE redeemedAt IS NULL RETURNING condition`, so concurrent redeems return `409 already_redeemed` to all but one.
 
 ### `Message_v2`
 Already exists; transcript rows. **This is the study's primary artifact** — every question and answer is here, keyed by `chatId` and ordered by `createdAt`. No schema change.
@@ -119,15 +138,35 @@ Body schema (POST):
   instructions?: string,
   participantExternalId: string,           // required
   participantMetadata?: Record<string, unknown>,
+  invitationToken: string,                 // required — selects condition + prompt
+  partnerModel?: string,                   // recommended — interviewee model id
 }
 ```
 Steps:
 1. `requireAgentAuth`.
-2. `upsertParticipant({ partnerAgentId, externalId, metadata })`.
-3. `createAgentChatAndSession({ chatId, partnerAgentId, participantId, userId: participant.userId, title, instructions, promptId: env, promptVersion: env })`.
+2. `verifyInvitation(invitationToken)` → JWT claims (`{ jti, condition, exp }`).
+3. Look up the row by `jti`, fail if expired or missing. Idempotent retry: if the same `(jti, externalId)` pair has already been redeemed, return that `chatId` + `condition` with `idempotent: true`.
+4. `upsertParticipant({ partnerAgentId, externalId, metadata })`.
+5. `redeemInvitation({ jti, chatId, externalId })` — atomic UPDATE with a `redeemedAt IS NULL` guard. Returns the `condition` on success.
+6. `promptForCondition(condition)` → `(promptId, promptVersion)` for the OpenAI Stored Prompt that condition is bound to.
+7. `createAgentChatAndSession({ chatId, partnerAgentId, participantId, userId: participant.userId, title, instructions, promptId, promptVersion, condition, partnerModel })`.
 
 ### `app/api/agent/v1/sessions/[chatId]/turns/route.ts`
-Uses the session-pinned `promptId` / `promptVersion`, with env defaults only for legacy rows where those fields are null. After a successful OpenAI call, it increments `AgentSession.totalTokens` by `response.usage?.total_tokens ?? 0`. No `AgentTurn` row.
+Uses the session-pinned `promptId` / `promptVersion`. After a successful OpenAI call, it:
+- saves the user + assistant `Message_v2` rows,
+- updates `AgentSession.responseId`,
+- captures `response.model` into `AgentSession.interviewerModel` if that column was null,
+- updates `AgentSession.partnerModel` if the request body included a new value,
+- increments `AgentSession.totalTokens` by `response.usage?.total_tokens ?? 0`.
+
+Body schema:
+```ts
+{
+  text: string,                  // required, ≤ 8000 chars
+  messageId?: string,            // uuid; lets caller pre-assign the user msg id
+  partnerModel?: string,         // last-write-wins update of AgentSession.partnerModel
+}
+```
 
 ### `app/api/agent/v1/sessions/[chatId]/complete/route.ts`
 No change beyond setting `completedAt`.
