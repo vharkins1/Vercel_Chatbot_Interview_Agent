@@ -32,7 +32,17 @@ Tracked here so the next-up work is visible without leaving the goal doc.
 - **Browser redirect handoff (Study 2).** On `/complete`, build a Qualtrics URL with embedded data (`pid`, `condition`, `completion_code`) and return it for the client to navigate to. Declare those three as Embedded Data at the top of the Qualtrics survey flow.
 - **`completion_code` on `AgentSession`.** Random 16-char base64url, set at `/complete`. Acts as the join key between transcripts and Qualtrics responses when matching exports.
 - **`/interview?invite=<jwt>` landing route (Study 2).** Reads the invitation token from query params, redeems it, creates `Chat` + `AgentSession` with the assigned condition, sets a session cookie, redirects to the chat UI. Schema and JWT primitives are already in place — only the route is missing.
-- **Human chat route refactor.** `app/(chat)/api/chat/route.ts` does not currently create or read `AgentSession` rows. To unify the two paths on one schema, the human path needs to create an AgentSession at session start (mirroring the agent path) and read the pinned `promptId` from it on every turn.
+- **Human chat route refactor.** `app/(chat)/api/chat/route.ts` does not currently create or read `AgentSession` rows. To unify the two paths on one schema, the human path needs to create an AgentSession at session start (mirroring the agent path) and read the pinned `promptId` from it on every turn. *(Note: the `(chat)` playground was deleted in `5d1d036` — reframe this item if/when a new browser path lands.)*
+
+### Pre-launch audit checklist
+
+Things to confirm before going to real participants. None of these block the agent-only smoke flow that's running today, but each is a sharp edge if launched as-is.
+
+- **Auth/key flow audit.** `/api/agent/v1/keys` is unauthenticated (only IP-rate-limited) and returns a multi-use key. Decide before launch: gate the endpoint behind an operator bootstrap secret or IP allowlist, shorten key TTL, or bind keys to a single session (auto-revoke on `/complete`). Revisit the per-partner session rate limit (currently 50/hour) against expected traffic. Define an `INVITE_JWT_SECRET` rotation policy.
+- **Materialize `SessionTranscript`.** The view DDL is in `scripts/create-session-transcript-view.ts` but was never run against prod — only `SessionOverview` exists. Run `pnpm db:create-session-transcript-view`, and update both view scripts to read `condition` from `AgentSession.condition` (post-milestone-3) instead of `Participant.metadata`.
+- **Message classification.** Assistant turns (acknowledgments / questions / feedback summaries) are stored as undifferentiated text in `Message_v2`. Researchers can read full transcripts but cannot SQL-slice "all feedback turns" or compare feedback across conditions. Either add explicit markers in the prompt template + a `Message_v2.kind` column, or ship a heuristic post-hoc view and accept its imprecision.
+- **Model self-disclosure inconsistency.** The negative-condition prompt apparently includes a guardrail against disclosing the model, so `partnerModel` (self-declared by the partner agent in the request body) is the only reliable interviewee-model field — an in-conversation question yields refusals for that condition. Confirm this is intended; if not, update the OpenAI prompt for the negative condition.
+- **Distribution sanity check.** With invitation tokens optional and the server randomizing, run ~30 sessions in dev and confirm condition counts land within tolerance of uniform. If skewed, swap to a deterministic round-robin across `ALL_CONDITIONS` instead of `Math.random()`.
 
 ## Study model
 
