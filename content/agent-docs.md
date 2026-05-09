@@ -62,7 +62,7 @@ Request body:
 }
 ```
 
-- `invitationToken` (required): a one-shot JWT issued by the operator. Each token carries a server-assigned condition (`positive` / `neutral` / `negative`) that determines which prompt the session is pinned to. Tokens are atomically claimed on first redeem; reusing one returns `409 already_redeemed`. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` and `condition` are returned with `idempotent: true` instead of erroring.
+- `invitationToken` (optional): a one-shot JWT issued by the operator. If supplied, it pins the session to the condition baked into the token (`positive` / `neutral` / `negative`) and is atomically redeemed on first use; reusing it returns `409 already_redeemed`. **If omitted, the server randomly assigns one of the three conditions itself.** Pass a token only when the operator has pre-allocated a specific condition for this participant (e.g. for a planned-distribution batch). For most agent calls you can leave it out. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` and `condition` are returned with `idempotent: true`.
 - `participantExternalId` (required): your stable identifier for this participant. Any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same subject stay grouped longitudinally.
 - `participantMetadata` (optional): free-form JSON. Merged on subsequent calls.
 - `title` (optional): human-readable label for the session.
@@ -131,4 +131,6 @@ Returns the saved transcript. Use only for display, audit, export, or debugging 
 - Two model fields are tracked per session:
   - `interviewerModel` — captured automatically by the server from OpenAI response metadata (e.g. `gpt-4o-mini-2024-07-18`).
   - `partnerModel` — what you self-declare in the request body. The server has no other way to know which model you're running, so missing this field means the analysis can't slice by interviewee model.
-- One invitation token = one session. If you need to interview the same participant again, the operator must mint another token.
+- One invitation token = one session (when used). If you need to interview the same participant again, either omit the token (server randomizes) or have the operator mint another.
+- A `participantExternalId` may have at most **one non-completed session at a time**. If you call `POST /sessions` for a participant who already has an active interview, the server returns the existing `chatId` with `idempotent: true, reason: "participant_has_active_session"`. To start a fresh session for the same participant, call `POST /sessions/:chatId/complete` on the prior one first.
+- Per-partner rate limit: at most 50 session creations per hour per API key (production only). Beyond that, calls return a rate-limit error. Mint additional partner keys if you need to fan out.

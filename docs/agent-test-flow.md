@@ -59,7 +59,7 @@ Content-Type: application/json
 
 ## Step 2 — Create a session
 
-This step now also requires a one-shot invitation token (`$INVITE`) issued by the operator via `pnpm db:create-invitations --count 1 --batch agent-test`. The token carries a server-assigned condition (positive / neutral / negative) and is single-use; reusing it returns 409.
+The `invitationToken` field (`$INVITE`) is **optional**. If you don't pass one, the server randomly assigns a condition itself (uniform across positive/neutral/negative) — fine for the smoke test. Pass one only when the operator has minted a token via `pnpm db:create-invitations --count 1 --batch agent-test` and wants you to consume it (it will be single-use; reuse returns 409).
 
 ```http
 POST {{BASE}}/api/agent/v1/sessions
@@ -67,11 +67,11 @@ Authorization: Bearer {{KEY}}
 Content-Type: application/json
 
 {
-  "invitationToken": "{{INVITE}}",
   "participantExternalId": "{{SUBJECT}}",
   "participantMetadata": { "test_run": true, "started_at": "<iso8601-utc>" },
   "title": "agent test flow",
   "partnerModel": "<your model id, e.g. claude-sonnet-4-5>"
+  // optional: "invitationToken": "{{INVITE}}"
 }
 ```
 

@@ -138,18 +138,21 @@ Body schema (POST):
   instructions?: string,
   participantExternalId: string,           // required
   participantMetadata?: Record<string, unknown>,
-  invitationToken: string,                 // required — selects condition + prompt
+  invitationToken?: string,                // optional — pins condition if provided
   partnerModel?: string,                   // recommended — interviewee model id
 }
 ```
 Steps:
 1. `requireAgentAuth`.
-2. `verifyInvitation(invitationToken)` → JWT claims (`{ jti, condition, exp }`).
-3. Look up the row by `jti`, fail if expired or missing. Idempotent retry: if the same `(jti, externalId)` pair has already been redeemed, return that `chatId` + `condition` with `idempotent: true`.
+2. `checkPartnerSessionRateLimit(partnerAgentId)` — Redis-backed counter, 50 sessions/hour/partner in production. Skipped in dev/test.
+3. (if token provided) `verifyInvitation(invitationToken)` → JWT claims (`{ jti, condition, exp }`); look up the row, fail if expired/missing. Token-level idempotency: same `(jti, externalId)` already redeemed → return that `chatId` + `condition` with `idempotent: true`.
 4. `upsertParticipant({ partnerAgentId, externalId, metadata })`.
-5. `redeemInvitation({ jti, chatId, externalId })` — atomic UPDATE with a `redeemedAt IS NULL` guard. Returns the `condition` on success.
-6. `promptForCondition(condition)` → `(promptId, promptVersion)` for the OpenAI Stored Prompt that condition is bound to.
-7. `createAgentChatAndSession({ chatId, partnerAgentId, participantId, userId: participant.userId, title, instructions, promptId, promptVersion, condition, partnerModel })`.
+5. `getActiveAgentSessionForParticipant({ participantId })` — participant-level idempotency. If there's a non-completed session, return it with `idempotent: true, reason: "participant_has_active_session"` and *do not* burn the token. Caller must `/complete` the prior session before starting a new one.
+6. Resolve the condition:
+   - If a token was provided: `redeemInvitation({ jti, chatId, externalId })` → atomic UPDATE with `redeemedAt IS NULL` guard. The condition comes from the token row.
+   - If no token: `pickRandomCondition()` — uniform random across `ALL_CONDITIONS`.
+7. `promptForCondition(condition)` → `(promptId, promptVersion)` for the OpenAI Stored Prompt bound to that condition.
+8. `createAgentChatAndSession({ chatId, partnerAgentId, participantId, userId: participant.userId, title, instructions, promptId, promptVersion, condition, partnerModel })`.
 
 ### `app/api/agent/v1/sessions/[chatId]/turns/route.ts`
 Uses the session-pinned `promptId` / `promptVersion`. After a successful OpenAI call, it:

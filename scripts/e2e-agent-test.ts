@@ -3,8 +3,9 @@ const BASE =
   "https://vercel-chatbot-interview-agent-git-main-vharkins1s-projects.vercel.app";
 const KEY = process.env.AGENT_API_KEY;
 if (!KEY) throw new Error("AGENT_API_KEY env var required");
+// Tokens are now optional: if INVITATION_TOKEN is unset, the server will
+// randomize the condition itself.
 const INVITATION_TOKEN = process.env.INVITATION_TOKEN;
-if (!INVITATION_TOKEN) throw new Error("INVITATION_TOKEN env var required");
 
 const PARTICIPANT_REPLIES = [
   "Hi — yes, I'm ready to start.",
@@ -59,7 +60,7 @@ async function createSession() {
       participantExternalId: `e2e-test-${Date.now()}`,
       participantMetadata: { note: "end-to-end smoke" },
       title: "E2E agent smoke test",
-      invitationToken: INVITATION_TOKEN,
+      ...(INVITATION_TOKEN ? { invitationToken: INVITATION_TOKEN } : {}),
       partnerModel: process.env.PARTNER_MODEL ?? "e2e-test-runner-script",
     }),
   });

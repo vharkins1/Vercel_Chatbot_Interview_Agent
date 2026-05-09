@@ -422,6 +422,32 @@ export async function createAgentSession({
   }
 }
 
+export async function getActiveAgentSessionForParticipant({
+  participantId,
+}: {
+  participantId: string;
+}): Promise<AgentSession | null> {
+  try {
+    const [row] = await db
+      .select()
+      .from(agentSession)
+      .where(
+        and(
+          eq(agentSession.participantId, participantId),
+          sql`${agentSession.completedAt} IS NULL`,
+        ),
+      )
+      .orderBy(desc(agentSession.createdAt))
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get active agent session for participant",
+    );
+  }
+}
+
 export async function getAgentSessionByChatId({
   chatId,
 }: {

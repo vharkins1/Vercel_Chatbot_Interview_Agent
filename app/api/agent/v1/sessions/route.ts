@@ -2,12 +2,20 @@ import { z } from "zod";
 import { requireAgentAuth } from "@/lib/agent-auth";
 import {
   createAgentChatAndSession,
+  getActiveAgentSessionForParticipant,
   getChatById,
   getInvitationByJti,
   redeemInvitation,
   upsertParticipant,
 } from "@/lib/db/queries";
-import { isCondition, promptForCondition } from "@/lib/study/conditions";
+import { ChatbotError } from "@/lib/errors";
+import { checkPartnerSessionRateLimit } from "@/lib/ratelimit";
+import {
+  ALL_CONDITIONS,
+  type Condition,
+  isCondition,
+  promptForCondition,
+} from "@/lib/study/conditions";
 import { verifyInvitation } from "@/lib/study/invitations";
 import { generateUUID } from "@/lib/utils";
 
@@ -19,13 +27,27 @@ const bodySchema = z.object({
   instructions: z.string().max(20000).optional(),
   participantExternalId: z.string().min(1).max(200),
   participantMetadata: z.record(z.unknown()).optional(),
-  invitationToken: z.string().min(1),
+  invitationToken: z.string().min(1).optional(),
   partnerModel: z.string().min(1).max(200).optional(),
 });
+
+function pickRandomCondition(): Condition {
+  const idx = Math.floor(Math.random() * ALL_CONDITIONS.length);
+  return ALL_CONDITIONS[idx];
+}
 
 export async function POST(request: Request) {
   const auth = await requireAgentAuth(request);
   if (!auth.ok) return auth.response;
+
+  try {
+    await checkPartnerSessionRateLimit(auth.partnerAgentId);
+  } catch (error) {
+    if (error instanceof ChatbotError) {
+      return error.toResponse();
+    }
+    throw error;
+  }
 
   let parsed: z.infer<typeof bodySchema>;
   try {
@@ -35,35 +57,47 @@ export async function POST(request: Request) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
-  let claims: Awaited<ReturnType<typeof verifyInvitation>>;
-  try {
-    claims = await verifyInvitation(parsed.invitationToken);
-  } catch (_) {
-    return Response.json({ error: "invalid_invitation" }, { status: 401 });
-  }
+  // Token branch: verify shape + DB row up front so a bad token fails fast,
+  // before we do any DB writes. Resolution (redeem) happens later, only if
+  // we actually go on to create a new session.
+  let tokenJti: string | null = null;
+  let tokenCondition: Condition | null = null;
+  if (parsed.invitationToken) {
+    let claims: Awaited<ReturnType<typeof verifyInvitation>>;
+    try {
+      claims = await verifyInvitation(parsed.invitationToken);
+    } catch (_) {
+      return Response.json({ error: "invalid_invitation" }, { status: 401 });
+    }
 
-  // Defense in depth: check expiry against DB row in case of clock skew or
-  // a token that verified but the DB has marked expired earlier.
-  const stored = await getInvitationByJti({ jti: claims.jti });
-  if (!stored) {
-    return Response.json({ error: "invalid_invitation" }, { status: 401 });
-  }
-  if (stored.expiresAt.getTime() <= Date.now()) {
-    return Response.json({ error: "invitation_expired" }, { status: 401 });
-  }
+    const stored = await getInvitationByJti({ jti: claims.jti });
+    if (!stored) {
+      return Response.json({ error: "invalid_invitation" }, { status: 401 });
+    }
+    if (stored.expiresAt.getTime() <= Date.now()) {
+      return Response.json({ error: "invitation_expired" }, { status: 401 });
+    }
 
-  // Idempotent retry: if the same caller (same externalId) already redeemed
-  // this token, return the existing chatId instead of erroring on a network retry.
-  if (
-    stored.redeemedAt &&
-    stored.redeemedByChatId &&
-    stored.redeemedByExternalId === parsed.participantExternalId
-  ) {
-    return Response.json({
-      chatId: stored.redeemedByChatId,
-      condition: stored.condition,
-      idempotent: true,
-    });
+    // Token-based idempotent retry: same token, same caller → return the
+    // chat that token was already redeemed for.
+    if (
+      stored.redeemedAt &&
+      stored.redeemedByChatId &&
+      stored.redeemedByExternalId === parsed.participantExternalId
+    ) {
+      return Response.json({
+        chatId: stored.redeemedByChatId,
+        condition: stored.condition,
+        idempotent: true,
+        reason: "token_already_redeemed_by_caller",
+      });
+    }
+
+    if (!isCondition(stored.condition)) {
+      return Response.json({ error: "invalid_condition" }, { status: 500 });
+    }
+    tokenJti = claims.jti;
+    tokenCondition = stored.condition;
   }
 
   if (parsed.chatId) {
@@ -85,22 +119,44 @@ export async function POST(request: Request) {
     metadata: parsed.participantMetadata,
   });
 
-  const redeem = await redeemInvitation({
-    jti: claims.jti,
-    chatId,
-    externalId: parsed.participantExternalId,
+  // Per-participant idempotency: if this participant already has a non-completed
+  // session, return it without minting a new one (and without burning a token).
+  // The caller should /complete the existing session before starting a new one.
+  const active = await getActiveAgentSessionForParticipant({
+    participantId: participant.id,
   });
-  if (!redeem.ok) {
-    if (redeem.reason === "already_redeemed") {
-      return Response.json({ error: "already_redeemed" }, { status: 409 });
-    }
-    return Response.json({ error: "invalid_invitation" }, { status: 401 });
+  if (active) {
+    return Response.json({
+      chatId: active.chatId,
+      condition: active.condition,
+      agentSession: active,
+      idempotent: true,
+      reason: "participant_has_active_session",
+    });
   }
 
-  if (!isCondition(redeem.condition)) {
-    return Response.json({ error: "invalid_condition" }, { status: 500 });
+  let condition: Condition;
+  if (tokenJti && tokenCondition) {
+    const redeem = await redeemInvitation({
+      jti: tokenJti,
+      chatId,
+      externalId: parsed.participantExternalId,
+    });
+    if (!redeem.ok) {
+      if (redeem.reason === "already_redeemed") {
+        return Response.json({ error: "already_redeemed" }, { status: 409 });
+      }
+      return Response.json({ error: "invalid_invitation" }, { status: 401 });
+    }
+    if (!isCondition(redeem.condition)) {
+      return Response.json({ error: "invalid_condition" }, { status: 500 });
+    }
+    condition = redeem.condition;
+  } else {
+    condition = pickRandomCondition();
   }
-  const { promptId, version } = promptForCondition(redeem.condition);
+
+  const { promptId, version } = promptForCondition(condition);
 
   const { agentSession } = await createAgentChatAndSession({
     chatId,
@@ -111,13 +167,13 @@ export async function POST(request: Request) {
     instructions: parsed.instructions,
     promptId,
     promptVersion: version,
-    condition: redeem.condition,
+    condition,
     partnerModel: parsed.partnerModel,
   });
 
   return Response.json({
     chatId,
-    condition: redeem.condition,
+    condition,
     agentSession,
   });
 }
