@@ -60,6 +60,7 @@ async function createSession() {
       participantMetadata: { note: "end-to-end smoke" },
       title: "E2E agent smoke test",
       invitationToken: INVITATION_TOKEN,
+      partnerModel: process.env.PARTNER_MODEL ?? "e2e-test-runner-script",
     }),
   });
   if (!r.ok) {

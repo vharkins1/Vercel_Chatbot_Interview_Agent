@@ -20,6 +20,7 @@ const bodySchema = z.object({
   participantExternalId: z.string().min(1).max(200),
   participantMetadata: z.record(z.unknown()).optional(),
   invitationToken: z.string().min(1),
+  partnerModel: z.string().min(1).max(200).optional(),
 });
 
 export async function POST(request: Request) {
@@ -111,6 +112,7 @@ export async function POST(request: Request) {
     promptId,
     promptVersion: version,
     condition: redeem.condition,
+    partnerModel: parsed.partnerModel,
   });
 
   return Response.json({

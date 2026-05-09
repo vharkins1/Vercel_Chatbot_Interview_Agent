@@ -19,6 +19,7 @@ export const maxDuration = 60;
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
   messageId: z.string().uuid().optional(),
+  partnerModel: z.string().min(1).max(200).optional(),
 });
 
 export async function POST(
@@ -120,9 +121,12 @@ export async function POST(
   await updateAgentSession({
     id: session.id,
     responseId: response.id,
-    ...(session.modelReported || !response.model
+    ...(session.interviewerModel || !response.model
       ? {}
-      : { modelReported: response.model }),
+      : { interviewerModel: response.model }),
+    ...(parsed.partnerModel && parsed.partnerModel !== session.partnerModel
+      ? { partnerModel: parsed.partnerModel }
+      : {}),
   });
   await incrementAgentSessionTokens({
     id: session.id,

@@ -448,8 +448,8 @@ export async function updateAgentSession({
   id: string;
   responseId?: string;
   completedAt?: Date;
-  modelReported?: string;
-  modelSelfDeclared?: string;
+  interviewerModel?: string;
+  partnerModel?: string;
 }) {
   try {
     return await db
@@ -613,6 +613,7 @@ export async function createAgentChatAndSession({
   promptId,
   promptVersion,
   condition,
+  partnerModel,
 }: {
   chatId: string;
   partnerAgentId: string;
@@ -623,6 +624,7 @@ export async function createAgentChatAndSession({
   promptId: string;
   promptVersion: string;
   condition?: string | null;
+  partnerModel?: string | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession }> {
   try {
     return await db.transaction(async (tx) => {
@@ -650,6 +652,7 @@ export async function createAgentChatAndSession({
           promptId,
           promptVersion,
           condition: condition ?? null,
+          partnerModel: partnerModel ?? null,
         })
         .returning();
 
