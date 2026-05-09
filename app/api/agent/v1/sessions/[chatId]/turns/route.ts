@@ -117,7 +117,13 @@ export async function POST(
     ],
   });
 
-  await updateAgentSession({ id: session.id, responseId: response.id });
+  await updateAgentSession({
+    id: session.id,
+    responseId: response.id,
+    ...(session.modelReported || !response.model
+      ? {}
+      : { modelReported: response.model }),
+  });
   await incrementAgentSessionTokens({
     id: session.id,
     by: response.usage?.total_tokens ?? 0,

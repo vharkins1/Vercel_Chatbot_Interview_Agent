@@ -81,6 +81,8 @@ export const agentSession = pgTable(
     promptId: text("promptId"),
     promptVersion: text("promptVersion"),
     condition: text("condition"),
+    modelReported: text("modelReported"),
+    modelSelfDeclared: text("modelSelfDeclared"),
     totalTokens: integer("totalTokens").notNull().default(0),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     completedAt: timestamp("completedAt"),

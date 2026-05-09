@@ -448,6 +448,8 @@ export async function updateAgentSession({
   id: string;
   responseId?: string;
   completedAt?: Date;
+  modelReported?: string;
+  modelSelfDeclared?: string;
 }) {
   try {
     return await db
