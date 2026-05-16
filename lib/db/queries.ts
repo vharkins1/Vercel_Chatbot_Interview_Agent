@@ -10,25 +10,25 @@ import {
   gte,
   inArray,
   lt,
-  sql,
   type SQL,
+  sql,
 } from "drizzle-orm";
 import { ChatbotError } from "../errors";
 import { selectQuestionsForChat } from "../interview/select-questions";
 import { generateUUID } from "../utils";
 import { db } from "./client";
 import {
+  type AgentSession,
+  agentSession,
   type Chat,
   chat,
   type DBMessage,
-  message,
-  type AgentSession,
-  agentSession,
   type Invitation,
   invitation,
+  message,
   type Participant,
-  participant,
   type PartnerAgent,
+  participant,
   partnerAgent,
   type User,
   user,
@@ -417,7 +417,7 @@ export async function createAgentSession({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create agent session",
+      "Failed to create agent session"
     );
   }
 }
@@ -434,8 +434,8 @@ export async function getActiveAgentSessionForParticipant({
       .where(
         and(
           eq(agentSession.participantId, participantId),
-          sql`${agentSession.completedAt} IS NULL`,
-        ),
+          sql`${agentSession.completedAt} IS NULL`
+        )
       )
       .orderBy(desc(agentSession.createdAt))
       .limit(1);
@@ -443,7 +443,7 @@ export async function getActiveAgentSessionForParticipant({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to get active agent session for participant",
+      "Failed to get active agent session for participant"
     );
   }
 }
@@ -462,7 +462,7 @@ export async function getAgentSessionByChatId({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to get agent session",
+      "Failed to get agent session"
     );
   }
 }
@@ -485,7 +485,7 @@ export async function updateAgentSession({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to update agent session",
+      "Failed to update agent session"
     );
   }
 }
@@ -514,7 +514,7 @@ export async function incrementAgentSessionTokens({
 // ── Partner agents & participants ──────────────────────────────
 
 export async function getPartnerAgentByKeyHash(
-  keyHash: string,
+  keyHash: string
 ): Promise<PartnerAgent | null> {
   try {
     const [row] = await db
@@ -526,7 +526,7 @@ export async function getPartnerAgentByKeyHash(
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to look up partner agent",
+      "Failed to look up partner agent"
     );
   }
 }
@@ -558,7 +558,7 @@ export async function createPartnerAgent({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create partner agent",
+      "Failed to create partner agent"
     );
   }
 }
@@ -568,7 +568,7 @@ export async function upsertParticipant({
   externalId,
   metadata,
 }: {
-  partnerAgentId: string;
+  partnerAgentId: string | null;
   externalId: string;
   metadata?: unknown;
 }): Promise<Participant> {
@@ -579,9 +579,11 @@ export async function upsertParticipant({
         .from(participant)
         .where(
           and(
-            eq(participant.partnerAgentId, partnerAgentId),
-            eq(participant.externalId, externalId),
-          ),
+            partnerAgentId === null
+              ? sql`${participant.partnerAgentId} IS NULL`
+              : eq(participant.partnerAgentId, partnerAgentId),
+            eq(participant.externalId, externalId)
+          )
         )
         .limit(1);
 
@@ -624,7 +626,7 @@ export async function upsertParticipant({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to upsert participant",
+      "Failed to upsert participant"
     );
   }
 }
@@ -639,10 +641,12 @@ export async function createAgentChatAndSession({
   promptId,
   promptVersion,
   condition,
+  conditionLabel,
   partnerModel,
+  startIp,
 }: {
   chatId: string;
-  partnerAgentId: string;
+  partnerAgentId: string | null;
   participantId: string;
   userId: string;
   title: string;
@@ -650,7 +654,9 @@ export async function createAgentChatAndSession({
   promptId: string;
   promptVersion: string;
   condition?: string | null;
+  conditionLabel?: string | null;
   partnerModel?: string | null;
+  startIp?: string | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession }> {
   try {
     return await db.transaction(async (tx) => {
@@ -664,6 +670,7 @@ export async function createAgentChatAndSession({
           visibility: "private",
           partnerAgentId,
           participantId,
+          startIp: startIp ?? null,
         })
         .returning();
 
@@ -678,6 +685,7 @@ export async function createAgentChatAndSession({
           promptId,
           promptVersion,
           condition: condition ?? null,
+          conditionLabel: conditionLabel ?? null,
           partnerModel: partnerModel ?? null,
         })
         .returning();
@@ -690,7 +698,7 @@ export async function createAgentChatAndSession({
     console.error("[createAgentChatAndSession] error:", error);
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create agent chat and session",
+      "Failed to create agent chat and session"
     );
   }
 }
@@ -700,11 +708,13 @@ export async function createAgentChatAndSession({
 export async function createInvitation({
   jti,
   condition,
+  conditionLabel,
   expiresAt,
   batchLabel,
 }: {
   jti: string;
   condition: string;
+  conditionLabel?: string | null;
   expiresAt: Date;
   batchLabel?: string | null;
 }): Promise<Invitation> {
@@ -714,6 +724,7 @@ export async function createInvitation({
       .values({
         jti,
         condition,
+        conditionLabel: conditionLabel ?? null,
         expiresAt,
         batchLabel: batchLabel ?? null,
       })
@@ -722,7 +733,7 @@ export async function createInvitation({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create invitation",
+      "Failed to create invitation"
     );
   }
 }
@@ -740,10 +751,7 @@ export async function getInvitationByJti({
       .limit(1);
     return row;
   } catch (_error) {
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to load invitation",
-    );
+    throw new ChatbotError("bad_request:database", "Failed to load invitation");
   }
 }
 
@@ -769,7 +777,7 @@ export async function redeemInvitation({
         redeemedByExternalId: externalId,
       })
       .where(
-        and(eq(invitation.jti, jti), sql`${invitation.redeemedAt} IS NULL`),
+        and(eq(invitation.jti, jti), sql`${invitation.redeemedAt} IS NULL`)
       )
       .returning({ condition: invitation.condition });
 
@@ -785,7 +793,7 @@ export async function redeemInvitation({
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to redeem invitation",
+      "Failed to redeem invitation"
     );
   }
 }

@@ -38,7 +38,7 @@ function parseArgs(argv: string[]): Args {
           args.condition = value;
         } else {
           throw new Error(
-            `--condition must be one of: mixed, ${ALL_CONDITIONS.join(", ")}`,
+            `--condition must be one of: mixed, ${ALL_CONDITIONS.join(", ")}`
           );
         }
         i++;
@@ -75,7 +75,10 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 
-function buildAssignment(count: number, condition: Args["condition"]): Condition[] {
+function buildAssignment(
+  count: number,
+  condition: Args["condition"]
+): Condition[] {
   if (condition !== "mixed") {
     return Array.from({ length: count }, () => condition);
   }
@@ -106,10 +109,12 @@ async function main() {
   try {
     const tokens: string[] = [];
     const counts: Record<Condition, number> = {
-      positive: 0,
-      neutral: 0,
-      negative: 0,
+      A: 0,
+      B: 0,
+      C: 0,
     };
+
+    const { labelForCondition } = await import("../lib/study/conditions");
 
     for (const cond of assignment) {
       const jti = generateJti();
@@ -121,6 +126,7 @@ async function main() {
       await db.insert(invitation).values({
         jti,
         condition: cond,
+        conditionLabel: labelForCondition(cond),
         expiresAt,
         batchLabel: args.batch,
       });
@@ -131,7 +137,7 @@ async function main() {
     console.error(
       `created ${args.count} invitation(s)` +
         (args.batch ? ` in batch ${args.batch}` : "") +
-        ` — positive:${counts.positive} neutral:${counts.neutral} negative:${counts.negative}`,
+        ` — A:${counts.A} B:${counts.B} C:${counts.C}`
     );
     console.error(`expires at: ${expiresAt.toISOString()}`);
     console.error("");

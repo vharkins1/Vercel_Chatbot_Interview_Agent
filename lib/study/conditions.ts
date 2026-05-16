@@ -1,10 +1,6 @@
-export type Condition = "positive" | "neutral" | "negative";
+export type Condition = "A" | "B" | "C";
 
-export const ALL_CONDITIONS: readonly Condition[] = [
-  "positive",
-  "neutral",
-  "negative",
-] as const;
+export const ALL_CONDITIONS: readonly Condition[] = ["A", "B", "C"] as const;
 
 export function isCondition(value: unknown): value is Condition {
   return (
@@ -13,11 +9,27 @@ export function isCondition(value: unknown): value is Condition {
   );
 }
 
+/**
+ * Internal-only mapping from blinded code label (A/B/C) to the study's
+ * descriptive label. Used for DB writes (AgentSession.conditionLabel) and
+ * never returned through any API or shown in the UI.
+ * See docs/conditions-mapping.md (gitignored) for the rationale.
+ */
+export const CONDITION_LABEL: Record<Condition, string> = {
+  A: "positive",
+  B: "neutral",
+  C: "disconfirmatory",
+};
+
+export function labelForCondition(condition: Condition): string {
+  return CONDITION_LABEL[condition];
+}
+
 type PromptRef = { promptId: string; version: string };
 
 function readPromptRef(condition: Condition): PromptRef {
-  const idEnv = `OPENAI_${condition.toUpperCase()}_PROMPT_ID`;
-  const versionEnv = `OPENAI_${condition.toUpperCase()}_PROMPT_VERSION`;
+  const idEnv = `OPENAI_${condition}_PROMPT_ID`;
+  const versionEnv = `OPENAI_${condition}_PROMPT_VERSION`;
   const promptId = process.env[idEnv];
   if (!promptId) {
     throw new Error(`${idEnv} is not set`);

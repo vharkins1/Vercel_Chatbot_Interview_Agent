@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { SignJWT, jwtVerify } from "jose";
+import { jwtVerify, SignJWT } from "jose";
 import { type Condition, isCondition } from "./conditions";
 
 const ALG = "HS256";
@@ -37,7 +37,7 @@ export type VerifiedInvitation = {
 };
 
 export async function verifyInvitation(
-  token: string,
+  token: string
 ): Promise<VerifiedInvitation> {
   const { payload } = await jwtVerify(token, getSecret(), {
     algorithms: [ALG],
