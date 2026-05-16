@@ -21,10 +21,15 @@ async function main() {
       .set({ revokedAt: null })
       .where(eq(partnerAgent.name, name))
       .returning({ id: partnerAgent.id, name: partnerAgent.name });
-    console.log(row ? `unrevoked: ${row.name} (${row.id})` : `no partner named "${name}"`);
+    console.log(
+      row ? `unrevoked: ${row.name} (${row.id})` : `no partner named "${name}"`
+    );
   } finally {
     await sql.end();
   }
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

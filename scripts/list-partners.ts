@@ -8,7 +8,8 @@ async function main() {
   if (!url) throw new Error("POSTGRES_URL is required");
   const sql = postgres(url);
   try {
-    const rows = await sql`SELECT id, name, "createdAt", "lastUsedAt", "revokedAt" FROM "PartnerAgent" ORDER BY "createdAt"`;
+    const rows =
+      await sql`SELECT id, name, "createdAt", "lastUsedAt", "revokedAt" FROM "PartnerAgent" ORDER BY "createdAt"`;
     console.log(JSON.stringify(rows, null, 2));
   } finally {
     await sql.end();

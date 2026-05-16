@@ -23,6 +23,7 @@
     "db:create-session-view": "tsx scripts/create-session-view.ts",
     "db:create-session-transcript-view": "tsx scripts/create-session-transcript-view.ts",
     "db:export-sessions": "tsx scripts/export-sessions.ts",
+    "db:export-transcripts": "tsx scripts/export-transcripts.ts",
     "db:audit": "tsx scripts/audit-data.ts",
     "db:wipe-chat-data": "tsx scripts/wipe-chat-data.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"

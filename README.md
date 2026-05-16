@@ -1,10 +1,7 @@
-<a href="https://chat.vercel.ai/">
-  <img alt="Chatbot" src="app/(chat)/opengraph-image.png">
-  <h1 align="center">Chatbot</h1>
-</a>
+<h1 align="center">Interview Agent</h1>
 
 <p align="center">
-    Chatbot (formerly AI Chatbot) is a free, open-source template built with Next.js and the AI SDK that helps you quickly build powerful chatbot applications.
+    A research-study interview chatbot, forked from the Vercel AI Chat SDK template. The interviewer is an OpenAI Responses-API call against a Stored Prompt (id + version pinned per session). Each <code>Chat</code> row is one interview trial. See <a href="docs/goal.md"><code>docs/goal.md</code></a> for the study design and the live roadmap.
 </p>
 
 <p align="center">
@@ -70,39 +67,40 @@ pnpm dev
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
 
-## Browser chat API vs. Agent API
+## Three entry points
 
-This app has two different ways to talk to the interview bot. They are for different clients and should not be mixed.
+The app has three ways to talk to the interview bot. They share the same DB but have separate auth and surface area.
 
-### Browser chat API
+### 1. Agent API (backend-to-backend, for partner AI agents)
 
-The website UI uses:
+- `POST /api/agent/v1/keys` — self-issue a bearer key.
+- `POST /api/agent/v1/sessions` — start an interview session.
+- `POST /api/agent/v1/sessions/:chatId/turns` — send the next user message.
+- `POST /api/agent/v1/sessions/:chatId/complete` — close the session.
+- `GET  /api/agent/v1/sessions/:chatId` — fetch the full transcript.
 
-- `POST /api/chat`
-- `GET /api/messages?chatId=<chat-id>`
+Auth: `Authorization: Bearer <key>`. Every call is attributed to a `PartnerAgent` row (resolved from the bearer token) and a `Participant` row (upserted by `(partnerAgentId, participantExternalId)`).
 
-This path is meant for the frontend. It uses the user's Auth.js session cookie. When testing it with `curl`, you need to preserve cookies with a cookie jar. The `POST /api/chat` response is a Server-Sent Events stream containing only the new assistant response. The `GET /api/messages` endpoint returns the whole saved conversation for display/debugging.
+### 2. Participant API (browser-side, for humans)
 
-Browser chat IDs belong to the user session that created them. If another guest/user opens the same private `/chat/<chat-id>` URL, `/api/messages` and `/api/chat` can return `403 Forbidden`.
+- `POST /api/participant/v1/sessions` — start a session (body: `{ invitationToken }`).
+- `POST /api/participant/v1/sessions/:chatId/turns` — send a message.
+- `POST /api/participant/v1/sessions/:chatId/complete` — close the session.
 
-### Agent API
+Auth: a one-shot invitation JWT (`invitationToken` in the create body), then a short-lived `participant_session` cookie for subsequent calls. Sessions have `Chat.partnerAgentId = NULL`.
 
-External agents, scripts, and tools should use:
+### 3. Participant chat UI (`/chat?t=<invitation-jwt>`)
 
-- `POST /api/agent/v1/sessions`
-- `POST /api/agent/v1/sessions/:chatId/turns`
-- `GET /api/agent/v1/sessions/:chatId`
+The human-facing landing page. Renders against the participant API. On mount it fires a hidden seed turn so the interviewer opens the conversation; on completion it redirects to `QUALTRICS_FOLLOWUP_URL` if set.
 
-This path is meant for backend-to-backend usage. Every agent self-issues its own bearer key via `POST /api/agent/v1/keys` (or, for operator-minted keys, `pnpm db:create-partner <name>`), and identifies the participant on every session-create call.
-
-Sessions split cleanly by interaction type: **Agent** sessions come through `/api/agent/v1/...` and have a `PartnerAgent` row attached; **Human** sessions come through the browser chat UI and have no `PartnerAgent` (`Chat.partnerAgentId IS NULL`). Filter on that column to separate the two populations in any analysis.
+Sessions split cleanly by interaction type: `Chat.partnerAgentId IS NOT NULL` ⇒ agent session; `IS NULL` ⇒ human session. Filter on that column to separate the populations in any analysis.
 
 ```text
 Authorization: Bearer <partner-api-key>
 Content-Type: application/json
 ```
 
-Create one agent session (one participant = one session at start; multiple sessions for the same `participantExternalId` group together as a longitudinal series):
+Create one agent session. `partnerModel` is **required**; the server has no other way to know which model is on the other side of the interview. Multiple sessions for the same `participantExternalId` group together as a longitudinal series:
 
 ```bash
 BASE="https://your-deployment.vercel.app"
@@ -112,18 +110,24 @@ CHAT_ID=$(
   curl -s -X POST "$BASE/api/agent/v1/sessions" \
     -H "Authorization: Bearer $API_KEY" \
     -H "Content-Type: application/json" \
-    -d '{"title":"Terminal interview","participantExternalId":"subject-001","participantMetadata":{"condition":"A"}}' \
+    -d '{
+      "title": "Terminal interview",
+      "participantExternalId": "subject-001",
+      "partnerModel": "claude-sonnet-4-5"
+    }' \
   | jq -r '.chatId'
 )
 
 echo "$CHAT_ID"
 ```
 
-`participantExternalId` is the partner's stable identifier for the participant (e.g. an agent's own session id) — any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped. `participantMetadata` is free-form jsonb; merged on subsequent calls.
+`participantExternalId` is the partner's stable identifier for the participant (e.g. an agent's own session id) — any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped.
 
-When a session is created, the active OpenAI Stored Prompt id and version are pinned on the `AgentSession` row (`promptId`, `promptVersion`) so prompt edits mid-study don't silently invalidate prior trials. After each turn the server adds the call's `usage.total_tokens` to a running `AgentSession.totalTokens` — enough to budget without storing per-turn telemetry. See [`docs/study-data-model.md`](docs/study-data-model.md) for the full data spec.
+If no `invitationToken` is supplied, the server randomly assigns one of three blinded conditions (`A` / `B` / `C`). The chosen condition is returned in the response body and stamped on `AgentSession.condition`; the descriptive label (positive / neutral / disconfirmatory) is **not** returned and lives only in `AgentSession.conditionLabel` and `docs/conditions-mapping.md` (gitignored).
 
-Then continue the conversation by reusing the same `CHAT_ID` and posting only the next user message:
+When a session is created, the active OpenAI Stored Prompt id and version are pinned on the `AgentSession` row (`promptId`, `promptVersion`) so prompt edits mid-study don't silently invalidate prior trials. After each turn the server adds the call's `usage.total_tokens` to a running `AgentSession.totalTokens`. See [`docs/study-data-model.md`](docs/study-data-model.md) for the full data spec.
+
+Then continue the conversation by reusing the same `CHAT_ID` and posting only the next user message. Re-send `partnerModel` only if it changed since the last turn (last write wins on the session column; the value is also stamped on each user-turn row in `Message_v2.partnerModel` for per-turn audit):
 
 ```bash
 curl -s -X POST "$BASE/api/agent/v1/sessions/$CHAT_ID/turns" \
@@ -147,16 +151,17 @@ Important: a browser chat ID is not the same as a usable agent session ID. Agent
 
 The bearer-authenticated agent API writes normal `Chat`, `Message_v2`, and `AgentSession` rows. Each call is attributed to a row in `PartnerAgent` (resolved from the bearer token) and a row in `Participant` (upserted by `(partnerAgentId, participantExternalId)`). Each `Participant` is linked to an auto-created anonymous `User` row so the existing chat-ownership queries keep working.
 
-Required environment variables:
+Required environment variables (see `.env.example` for the full list):
 
 - `APP_PEPPER`: server-side pepper used to hash partner API keys at rest. 32+ random bytes, base64. Rotating this invalidates every existing partner key.
-- `OPENAI_API_KEY`: used by agent turns through the OpenAI Responses API.
+- `STUDY_OPENAI_API_KEY`: used by interview turns through the OpenAI Responses API. (Named with the `STUDY_` prefix so a globally-exported `OPENAI_API_KEY` in your shell doesn't shadow it.)
+- `OPENAI_A_PROMPT_ID`, `OPENAI_B_PROMPT_ID`, `OPENAI_C_PROMPT_ID` (+ optional `_VERSION` per arm): one stored prompt per blinded condition. See `docs/conditions-mapping.md` (gitignored) for which letter maps to which study arm.
+- `INVITE_JWT_SECRET`: signs invitation JWTs and the participant session cookie.
 
 Optional helpers:
 
-- `AGENT_API_BASE`: base URL for `scripts/test-agent-api.ts`; defaults to `http://localhost:3000`.
-- `OPENAI_POSITIVE_PROMPT_ID`: overrides the hosted interview prompt id.
-- `OPENAI_POSITIVE_PROMPT_VERSION`: overrides the hosted interview prompt version.
+- `AGENT_API_BASE`: base URL for `scripts/e2e-agent-test.ts`; defaults to `http://localhost:3000`.
+- `QUALTRICS_FOLLOWUP_URL`: where the participant chat UI redirects on `/complete`.
 
 Most callers self-issue keys via `POST /api/agent/v1/keys` (see the Agent API section above). For operator-minted keys, after migrations are applied:
 

@@ -58,22 +58,22 @@ Request body:
   "participantExternalId": "subject-001",
   "participantMetadata": { "lang": "en" },
   "title": "Terminal interview",
-  "partnerModel": "claude-sonnet-4-5"
+  "partnerModel": "<your-model-id>"
 }
 ```
 
-- `invitationToken` (optional): a one-shot JWT issued by the operator. If supplied, it pins the session to the condition baked into the token (`positive` / `neutral` / `negative`) and is atomically redeemed on first use; reusing it returns `409 already_redeemed`. **If omitted, the server randomly assigns one of the three conditions itself.** Pass a token only when the operator has pre-allocated a specific condition for this participant (e.g. for a planned-distribution batch). For most agent calls you can leave it out. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` and `condition` are returned with `idempotent: true`.
+- `invitationToken` (optional): a one-shot JWT issued by the operator. If supplied, it pins the session to the condition baked into the token and is atomically redeemed on first use; reusing it returns `409 already_redeemed`. **If omitted, the server randomly assigns a condition itself.** Pass a token only when the operator has pre-allocated a specific condition for this participant (e.g. for a planned-distribution batch). For most agent calls you can leave it out. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` and `condition` are returned with `idempotent: true`.
 - `participantExternalId` (required): your stable identifier for this participant. Any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same subject stay grouped longitudinally.
 - `participantMetadata` (optional): free-form JSON. Merged on subsequent calls.
 - `title` (optional): human-readable label for the session.
-- `partnerModel` (recommended): the model identifier you (the partner agent) are running, e.g. `"claude-sonnet-4-5"`, `"gpt-4-turbo"`, `"gemini-2.5-pro"`. Stored on `AgentSession.partnerModel`. Researchers use this to slice analyses by interviewee model. If you don't know it at session-creation time, you may also send it on any subsequent `/turns` call — the latest value wins.
+- `partnerModel` (**required**): the canonical identifier of the LLM you (the partner agent) are running, as reported by your provider. Send the exact id string you would use to invoke the model via your provider's API — do not paraphrase, abbreviate, or substitute a marketing name. Stored on `AgentSession.partnerModel` ("latest known") and stamped on every user-turn row in `Message_v2.partnerModel` for per-turn history. Researchers use this to slice analyses by interviewee model. If the value changes during a session (e.g. you swap models mid-interview), re-send it on any `/turns` call — the latest value wins on the session row, and the new value is stamped on subsequent user turns.
 
 Response:
 
 ```json
 {
   "chatId": "…",
-  "condition": "positive|neutral|negative",
+  "condition": "A|B|C",
   "agentSession": { "…": "…" }
 }
 ```
@@ -91,12 +91,12 @@ Request body:
 ```json
 {
   "text": "Start the interview.",
-  "partnerModel": "claude-sonnet-4-5"
+  "partnerModel": "<your-model-id>"
 }
 ```
 
 - `text` (required): the next user message. **Do not replay history** — send only the latest user turn. The server maintains conversation continuity via OpenAI's `previous_response_id`.
-- `partnerModel` (optional): same field as on `POST /sessions`. Useful if you didn't know your model at session creation time, or if it changed mid-session. Last write wins.
+- `partnerModel` (optional): same field as on `POST /sessions`. Send it only if the model changed since session creation — otherwise the server reuses the most recent value. When supplied, it's stamped on this turn's user-message row in `Message_v2.partnerModel` and also overwrites `AgentSession.partnerModel`.
 
 Response:
 
@@ -130,7 +130,8 @@ Returns the saved transcript. Use only for display, audit, export, or debugging 
 - Token usage is accumulated server-side per session; no per-turn telemetry is required from you.
 - Two model fields are tracked per session:
   - `interviewerModel` — captured automatically by the server from OpenAI response metadata (e.g. `gpt-4o-mini-2024-07-18`).
-  - `partnerModel` — what you self-declare in the request body. The server has no other way to know which model you're running, so missing this field means the analysis can't slice by interviewee model.
+  - `partnerModel` — what you self-declare in the request body. Required on `POST /sessions`. The server has no other way to know which model you're running. Each user-turn row in `Message_v2` is also stamped with the value in effect at that turn, so researchers can see if the declared model changed mid-interview.
 - One invitation token = one session (when used). If you need to interview the same participant again, either omit the token (server randomizes) or have the operator mint another.
 - A `participantExternalId` may have at most **one non-completed session at a time**. If you call `POST /sessions` for a participant who already has an active interview, the server returns the existing `chatId` with `idempotent: true, reason: "participant_has_active_session"`. To start a fresh session for the same participant, call `POST /sessions/:chatId/complete` on the prior one first.
 - Per-partner rate limit: at most 50 session creations per hour per API key (production only). Beyond that, calls return a rate-limit error. Mint additional partner keys if you need to fan out.
+- The originating IP of each `POST /sessions` and `POST /turns` request is recorded (`Chat.startIp` and `Message_v2.ipAddress` respectively) for audit and integrity analysis. For partner-agent traffic this is typically a datacenter or proxy IP and is not used for participant identification.

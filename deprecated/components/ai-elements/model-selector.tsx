@@ -1,5 +1,5 @@
+import type { Popover as PopoverPrimitive } from "radix-ui";
 import type { ComponentProps, ReactNode } from "react";
-
 import {
   Command,
   CommandEmpty,
@@ -15,10 +15,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import type { Popover as PopoverPrimitive } from "radix-ui";
 import { cn } from "@/lib/utils";
 
-export type ModelSelectorProps = React.ComponentProps<typeof PopoverPrimitive.Root>;
+export type ModelSelectorProps = React.ComponentProps<
+  typeof PopoverPrimitive.Root
+>;
 
 export const ModelSelector = (props: ModelSelectorProps) => (
   <Popover {...props} />
@@ -30,7 +31,9 @@ export const ModelSelectorTrigger = (props: ModelSelectorTriggerProps) => (
   <PopoverTrigger {...props} />
 );
 
-export type ModelSelectorContentProps = ComponentProps<typeof PopoverContent> & {
+export type ModelSelectorContentProps = ComponentProps<
+  typeof PopoverContent
+> & {
   title?: ReactNode;
 };
 
@@ -62,12 +65,18 @@ export const ModelSelectorInput = ({
   className,
   ...props
 }: ModelSelectorInputProps) => (
-  <CommandInput className={cn("h-auto py-2.5 text-[13px]", className)} {...props} />
+  <CommandInput
+    className={cn("h-auto py-2.5 text-[13px]", className)}
+    {...props}
+  />
 );
 
 export type ModelSelectorListProps = ComponentProps<typeof CommandList>;
 
-export const ModelSelectorList = ({ className, ...props }: ModelSelectorListProps) => (
+export const ModelSelectorList = ({
+  className,
+  ...props
+}: ModelSelectorListProps) => (
   <CommandList className={cn("max-h-[280px]", className)} {...props} />
 );
 
@@ -85,8 +94,14 @@ export const ModelSelectorGroup = (props: ModelSelectorGroupProps) => (
 
 export type ModelSelectorItemProps = ComponentProps<typeof CommandItem>;
 
-export const ModelSelectorItem = ({ className, ...props }: ModelSelectorItemProps) => (
-  <CommandItem className={cn("w-full text-[13px] rounded-lg", className)} {...props} />
+export const ModelSelectorItem = ({
+  className,
+  ...props
+}: ModelSelectorItemProps) => (
+  <CommandItem
+    className={cn("w-full text-[13px] rounded-lg", className)}
+    {...props}
+  />
 );
 
 export type ModelSelectorShortcutProps = ComponentProps<typeof CommandShortcut>;

@@ -33,6 +33,15 @@ lib/study/prompts/generated.ts
 .claude/
 .revert-point
 
+# Private study design — see comment in docs/conditions-mapping.md
+docs/conditions-mapping.md
+
 # Local CSV exports from scripts/export-{messages,sessions}.ts
 artifacts/*.csv
+
+# Per-conversation transcript exports (contain unblinded condition labels)
+transcripts/
+
+# Live invitation tokens — output of scripts/create-invitations.ts
+invitations.csv
 

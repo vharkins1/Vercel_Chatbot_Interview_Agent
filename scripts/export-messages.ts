@@ -18,7 +18,11 @@ function extractText(parts: unknown): string {
     const type = String(p.type ?? "");
     if (type === "text" && typeof p.text === "string") {
       out.push(p.text);
-    } else if (type.startsWith("tool-") || type === "tool-call" || type === "tool-result") {
+    } else if (
+      type.startsWith("tool-") ||
+      type === "tool-call" ||
+      type === "tool-result"
+    ) {
       out.push(`[${type}] ${JSON.stringify(p)}`);
     } else if (type === "reasoning" && typeof p.text === "string") {
       out.push(`[reasoning] ${p.text}`);
@@ -47,7 +51,14 @@ async function main() {
       ORDER BY m."chatId", m."createdAt" ASC
     `;
 
-    const headers = ["chat_id", "chat_title", "created_at", "role", "text", "parts_json"];
+    const headers = [
+      "chat_id",
+      "chat_title",
+      "created_at",
+      "role",
+      "text",
+      "parts_json",
+    ];
     process.stdout.write(`${headers.join(",")}\n`);
     for (const r of rows as Array<Record<string, unknown>>) {
       const line = [
