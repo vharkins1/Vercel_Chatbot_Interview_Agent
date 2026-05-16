@@ -17,6 +17,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (pathname.startsWith("/api/participant/")) {
+    return NextResponse.next();
+  }
+
+  if (pathname === "/chat" || pathname.startsWith("/chat?")) {
+    return NextResponse.next();
+  }
+
   if (pathname === "/agent-docs" || pathname === "/llms.txt") {
     return NextResponse.next();
   }

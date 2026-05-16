@@ -2,11 +2,7 @@ import "server-only";
 
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import {
-  chatQuestion,
-  question,
-  topic,
-} from "@/lib/db/schema";
+import { chatQuestion, question, topic } from "@/lib/db/schema";
 
 type TxArg = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | TxArg;
@@ -55,7 +51,7 @@ async function loadBank(executor: Executor): Promise<
 
 export async function selectQuestionsForChat(
   chatId: string,
-  opts: { tx?: Executor; rng?: () => number } = {},
+  opts: { tx?: Executor; rng?: () => number } = {}
 ): Promise<SelectedQuestion[]> {
   const executor = opts.tx ?? db;
   const rng = opts.rng ?? Math.random;
@@ -63,7 +59,7 @@ export async function selectQuestionsForChat(
   const bank = await loadBank(executor);
   if (bank.length < 5) {
     throw new Error(
-      `Question bank has ${bank.length} topics, expected 5 — run db:migrate to seed.`,
+      `Question bank has ${bank.length} topics, expected 5 — run db:migrate to seed.`
     );
   }
 
@@ -73,7 +69,7 @@ export async function selectQuestionsForChat(
   shuffledTopics.forEach((t, topicIdx) => {
     if (t.questions.length < QUESTIONS_PER_TOPIC) {
       throw new Error(
-        `Topic ${t.topicId} has ${t.questions.length} active questions, need ≥ ${QUESTIONS_PER_TOPIC}.`,
+        `Topic ${t.topicId} has ${t.questions.length} active questions, need ≥ ${QUESTIONS_PER_TOPIC}.`
       );
     }
     const picked = shuffle(t.questions, rng).slice(0, QUESTIONS_PER_TOPIC);
@@ -99,7 +95,7 @@ export async function selectQuestionsForChat(
         topicOrder: s.topicOrder,
         questionOrder: s.questionOrder,
         questionTextSnapshot: s.text,
-      })),
+      }))
     )
     .onConflictDoNothing();
 
@@ -107,7 +103,7 @@ export async function selectQuestionsForChat(
 }
 
 export async function getChatQuestions(
-  chatId: string,
+  chatId: string
 ): Promise<SelectedQuestion[]> {
   const rows = await db
     .select({
@@ -126,7 +122,7 @@ export async function getChatQuestions(
 }
 
 export async function ensureChatQuestions(
-  chatId: string,
+  chatId: string
 ): Promise<SelectedQuestion[]> {
   const existing = await getChatQuestions(chatId);
   if (existing.length > 0) return existing;
@@ -145,7 +141,7 @@ export function formatQuestionsForPrompt(rows: SelectedQuestion[]): string {
   const topicOrders = Array.from(byTopic.keys()).sort((a, b) => a - b);
   for (const order of topicOrders) {
     const items = (byTopic.get(order) ?? []).sort(
-      (a, b) => a.questionOrder - b.questionOrder,
+      (a, b) => a.questionOrder - b.questionOrder
     );
     const header = `TOPIC ${order} — ${items[0]?.topicName ?? items[0]?.topicId ?? ""}`;
     const lines = items.map((q, i) => `${i + 1}. ${q.text}`);

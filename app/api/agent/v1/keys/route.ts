@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const partner = await createPartnerAgent({ name, keyHash });
     return Response.json(
       { apiKey: rawKey, partnerName: partner.name },
-      { status: 201 },
+      { status: 201 }
     );
   } catch (error) {
     if (error instanceof ChatbotError) {

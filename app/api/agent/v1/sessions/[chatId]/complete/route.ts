@@ -1,17 +1,15 @@
 import { requireAgentAuth } from "@/lib/agent-auth";
-import {
-  getAgentSessionByChatId,
-  getChatById,
-  getMessagesByChatId,
-  updateAgentSession,
-} from "@/lib/db/queries";
+import { getChatById } from "@/lib/db/queries";
+import { completeInterviewSession } from "@/lib/study/session-service";
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ chatId: string }> },
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   const auth = await requireAgentAuth(request);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return auth.response;
+  }
 
   const { chatId } = await params;
 
@@ -23,26 +21,14 @@ export async function POST(
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const session = await getAgentSessionByChatId({ chatId });
-  if (!session) {
+  const result = await completeInterviewSession({ chatId });
+  if (!result) {
     return Response.json({ error: "no_agent_session" }, { status: 404 });
   }
 
-  await updateAgentSession({ id: session.id, completedAt: new Date() });
-
-  const [refreshed, messages] = await Promise.all([
-    getAgentSessionByChatId({ chatId }),
-    getMessagesByChatId({ id: chatId }),
-  ]);
-
   return Response.json({
     chatId,
-    agentSession: refreshed,
-    messages: messages.map((m) => ({
-      id: m.id,
-      role: m.role,
-      parts: m.parts,
-      createdAt: m.createdAt,
-    })),
+    agentSession: result.agentSession,
+    messages: result.messages,
   });
 }

@@ -18,15 +18,12 @@ export function hashApiKey(raw: string): string {
 }
 
 export async function requireAgentAuth(
-  request: Request,
+  request: Request
 ): Promise<AgentAuthResult> {
   if (!process.env.APP_PEPPER) {
     return {
       ok: false,
-      response: Response.json(
-        { error: "agent_api_disabled" },
-        { status: 503 },
-      ),
+      response: Response.json({ error: "agent_api_disabled" }, { status: 503 }),
     };
   }
 

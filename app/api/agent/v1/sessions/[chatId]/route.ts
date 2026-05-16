@@ -7,7 +7,7 @@ import {
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ chatId: string }> },
+  { params }: { params: Promise<{ chatId: string }> }
 ) {
   const auth = await requireAgentAuth(request);
   if (!auth.ok) return auth.response;

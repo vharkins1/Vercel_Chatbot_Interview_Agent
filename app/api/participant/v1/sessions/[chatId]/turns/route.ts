@@ -1,6 +1,9 @@
+import { cookies } from "next/headers";
 import { z } from "zod";
-import { requireAgentAuth } from "@/lib/agent-auth";
-import { getChatById } from "@/lib/db/queries";
+import {
+  PARTICIPANT_COOKIE,
+  verifyParticipantSession,
+} from "@/lib/participant-auth";
 import { getRequestIp } from "@/lib/request-ip";
 import { executeTurn } from "@/lib/study/session-service";
 
@@ -8,20 +11,29 @@ export const maxDuration = 60;
 
 const bodySchema = z.object({
   text: z.string().min(1).max(8000),
-  messageId: z.string().uuid().optional(),
-  partnerModel: z.string().min(1).max(200).optional(),
 });
 
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ chatId: string }> }
 ) {
-  const auth = await requireAgentAuth(request);
-  if (!auth.ok) {
-    return auth.response;
+  const { chatId } = await params;
+
+  const cookieStore = await cookies();
+  const cookie = cookieStore.get(PARTICIPANT_COOKIE)?.value;
+  if (!cookie) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const { chatId } = await params;
+  let claims: Awaited<ReturnType<typeof verifyParticipantSession>>;
+  try {
+    claims = await verifyParticipantSession(cookie);
+  } catch (_) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (claims.chatId !== chatId) {
+    return Response.json({ error: "forbidden" }, { status: 403 });
+  }
 
   let parsed: z.infer<typeof bodySchema>;
   try {
@@ -30,22 +42,11 @@ export async function POST(
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const chat = await getChatById({ id: chatId });
-  if (!chat) {
-    return Response.json({ error: "not_found" }, { status: 404 });
-  }
-  if (chat.partnerAgentId !== auth.partnerAgentId) {
-    return Response.json({ error: "forbidden" }, { status: 403 });
-  }
-
   const result = await executeTurn({
     chatId,
     text: parsed.text,
-    userMessageId: parsed.messageId,
-    partnerModel: parsed.partnerModel,
     ipAddress: getRequestIp(request),
   });
-
   if (!result.ok) {
     return Response.json({ error: result.error }, { status: result.status });
   }
@@ -54,8 +55,8 @@ export async function POST(
     assistantMessage: {
       id: result.assistantMessageId,
       role: "assistant",
-      parts: [{ type: "text", text: result.assistantText }],
+      text: result.assistantText,
     },
-    responseId: result.responseId,
+    model: result.model,
   });
 }

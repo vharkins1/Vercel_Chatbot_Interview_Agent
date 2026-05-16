@@ -66,10 +66,7 @@ export async function checkPartnerSessionRateLimit(partnerAgentId: string) {
       .expire(key, TTL_SECONDS, "NX")
       .exec();
 
-    if (
-      typeof count === "number" &&
-      count > MAX_PARTNER_SESSIONS_PER_HOUR
-    ) {
+    if (typeof count === "number" && count > MAX_PARTNER_SESSIONS_PER_HOUR) {
       throw new ChatbotError("rate_limit:chat");
     }
   } catch (error) {

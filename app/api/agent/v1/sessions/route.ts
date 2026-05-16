@@ -10,10 +10,12 @@ import {
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { checkPartnerSessionRateLimit } from "@/lib/ratelimit";
+import { getRequestIp } from "@/lib/request-ip";
 import {
   ALL_CONDITIONS,
   type Condition,
   isCondition,
+  labelForCondition,
   promptForCondition,
 } from "@/lib/study/conditions";
 import { verifyInvitation } from "@/lib/study/invitations";
@@ -24,11 +26,11 @@ export const maxDuration = 30;
 const bodySchema = z.object({
   chatId: z.string().uuid().optional(),
   title: z.string().min(1).max(200).optional(),
-  instructions: z.string().max(20000).optional(),
+  instructions: z.string().max(20_000).optional(),
   participantExternalId: z.string().min(1).max(200),
   participantMetadata: z.record(z.unknown()).optional(),
   invitationToken: z.string().min(1).optional(),
-  partnerModel: z.string().min(1).max(200).optional(),
+  partnerModel: z.string().min(1).max(200),
 });
 
 function pickRandomCondition(): Condition {
@@ -119,9 +121,6 @@ export async function POST(request: Request) {
     metadata: parsed.participantMetadata,
   });
 
-  // Per-participant idempotency: if this participant already has a non-completed
-  // session, return it without minting a new one (and without burning a token).
-  // The caller should /complete the existing session before starting a new one.
   const active = await getActiveAgentSessionForParticipant({
     participantId: participant.id,
   });
@@ -168,7 +167,9 @@ export async function POST(request: Request) {
     promptId,
     promptVersion: version,
     condition,
+    conditionLabel: labelForCondition(condition),
     partnerModel: parsed.partnerModel,
+    startIp: getRequestIp(request),
   });
 
   return Response.json({
