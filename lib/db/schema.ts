@@ -41,25 +41,35 @@ export const chat = pgTable(
       .default("private"),
     partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id),
     participantId: uuid("participantId").references(() => participant.id),
+    startIp: text("startIp"),
   },
   (table) => ({
     partnerAgentIdx: index("Chat_partnerAgentId_idx").on(table.partnerAgentId),
     participantIdx: index("Chat_participantId_idx").on(table.participantId),
-  }),
+    startIpIdx: index("Chat_startIp_idx").on(table.startIp),
+  })
 );
 
 export type Chat = InferSelectModel<typeof chat>;
 
-export const message = pgTable("Message_v2", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  chatId: uuid("chatId")
-    .notNull()
-    .references(() => chat.id),
-  role: varchar("role").notNull(),
-  parts: json("parts").notNull(),
-  attachments: json("attachments").notNull(),
-  createdAt: timestamp("createdAt").notNull(),
-});
+export const message = pgTable(
+  "Message_v2",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id),
+    role: varchar("role").notNull(),
+    parts: json("parts").notNull(),
+    attachments: json("attachments").notNull(),
+    createdAt: timestamp("createdAt").notNull(),
+    partnerModel: text("partnerModel"),
+    ipAddress: text("ipAddress"),
+  },
+  (table) => ({
+    ipAddressIdx: index("Message_v2_ipAddress_idx").on(table.ipAddress),
+  })
+);
 
 export type DBMessage = InferSelectModel<typeof message>;
 
@@ -81,6 +91,7 @@ export const agentSession = pgTable(
     promptId: text("promptId"),
     promptVersion: text("promptVersion"),
     condition: text("condition"),
+    conditionLabel: text("conditionLabel"),
     interviewerModel: text("interviewerModel"),
     partnerModel: text("partnerModel"),
     totalTokens: integer("totalTokens").notNull().default(0),
@@ -91,12 +102,12 @@ export const agentSession = pgTable(
   },
   (table) => ({
     partnerAgentIdx: index("AgentSession_partnerAgentId_idx").on(
-      table.partnerAgentId,
+      table.partnerAgentId
     ),
     participantIdx: index("AgentSession_participantId_idx").on(
-      table.participantId,
+      table.participantId
     ),
-  }),
+  })
 );
 
 export type AgentSession = InferSelectModel<typeof agentSession>;
@@ -118,9 +129,9 @@ export const participant = pgTable(
   "Participant",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    partnerAgentId: uuid("partnerAgentId")
-      .notNull()
-      .references(() => partnerAgent.id, { onDelete: "cascade" }),
+    partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id, {
+      onDelete: "cascade",
+    }),
     externalId: text("externalId").notNull(),
     userId: uuid("userId")
       .notNull()
@@ -131,9 +142,9 @@ export const participant = pgTable(
   (table) => ({
     partnerExternalUq: uniqueIndex("Participant_partner_external_uq").on(
       table.partnerAgentId,
-      table.externalId,
+      table.externalId
     ),
-  }),
+  })
 );
 
 export type Participant = InferSelectModel<typeof participant>;
@@ -145,6 +156,7 @@ export const invitation = pgTable(
   {
     jti: text("jti").primaryKey().notNull(),
     condition: text("condition").notNull(),
+    conditionLabel: text("conditionLabel"),
     expiresAt: timestamp("expiresAt").notNull(),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
     redeemedAt: timestamp("redeemedAt"),
@@ -155,9 +167,9 @@ export const invitation = pgTable(
   (table) => ({
     batchIdx: index("Invitation_batchLabel_idx").on(table.batchLabel),
     redeemedChatIdx: index("Invitation_redeemedByChatId_idx").on(
-      table.redeemedByChatId,
+      table.redeemedByChatId
     ),
-  }),
+  })
 );
 
 export type Invitation = InferSelectModel<typeof invitation>;
@@ -187,9 +199,9 @@ export const question = pgTable(
     topicIdx: index("Question_topicId_idx").on(table.topicId),
     topicTextUq: uniqueIndex("Question_topicId_text_uq").on(
       table.topicId,
-      table.text,
+      table.text
     ),
-  }),
+  })
 );
 
 export type Question = InferSelectModel<typeof question>;
@@ -214,7 +226,7 @@ export const chatQuestion = pgTable(
     pk: primaryKey({ columns: [table.chatId, table.questionId] }),
     chatIdx: index("ChatQuestion_chatId_idx").on(table.chatId),
     topicIdx: index("ChatQuestion_topicId_idx").on(table.topicId),
-  }),
+  })
 );
 
 export type ChatQuestion = InferSelectModel<typeof chatQuestion>;

@@ -92,6 +92,41 @@
       "when": 1793000300000,
       "tag": "0012_partner_model",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793000360000,
+      "tag": "0013_participant_optional_partner",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793000420000,
+      "tag": "0014_drop_partner_pair_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793000480000,
+      "tag": "0015_condition_blind_labels",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793000540000,
+      "tag": "0016_message_partner_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793000600000,
+      "tag": "0017_track_request_ip",
+      "breakpoints": true
     }
   ]
 }
