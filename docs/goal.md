@@ -71,7 +71,23 @@ Deliberately not stored: per-turn telemetry, per-message token usage, latency. T
 
 ## Operationally
 
-- DB: Supabase Postgres. Migrations via Drizzle (`pnpm db:generate` / `pnpm db:migrate`).
+- DB: Supabase Postgres. Migrations via Drizzle (`pnpm db:generate` / `pnpm db:migrate`). **Commit migrations before they run.** `pnpm db:migrate` (and `pnpm build`'s pre-step) records the SQL hash in `__drizzle_migrations` and skips that tag on every future build — so an uncommitted migration run locally against prod is silently un-replayable, and any code refactor that depends on it can drift out of sync with the schema. If you find yourself doing `pnpm db:generate` followed by anything other than `git add lib/db/migrations/`, stop.
+- Useful diagnostic queries:
+  ```sql
+  -- Same IP across multiple sessions (multi-account or shared link)
+  SELECT "startIp", COUNT(*) FROM "Chat"
+  WHERE "startIp" IS NOT NULL
+  GROUP BY "startIp" HAVING COUNT(*) > 1;
+
+  -- Mid-session IP changes (VPN flip, network handoff)
+  SELECT "chatId", COUNT(DISTINCT "ipAddress") FROM "Message_v2"
+  WHERE "ipAddress" IS NOT NULL
+  GROUP BY "chatId" HAVING COUNT(DISTINCT "ipAddress") > 1;
+
+  -- Mid-session model swaps
+  SELECT "chatId" FROM "Message_v2"
+  GROUP BY "chatId" HAVING COUNT(DISTINCT "partnerModel") > 1;
+  ```
 - Hosted on Vercel. Deployment Protection is off for production so partner agents can hit the API without bypass tokens; previews stay SSO-locked.
 - Auth: agent API uses sha256(key + `APP_PEPPER`) → DB lookup against `PartnerAgent.keyHash`. Mint partner keys with `pnpm db:create-partner <name>`; raw key is printed once.
 - Prompt: the interviewer behavior lives in OpenAI's Stored Prompts feature, not in this repo. Update the prompt there; this code references it by `id` + `version`, and the version in effect is recorded on the session for reproducibility.
