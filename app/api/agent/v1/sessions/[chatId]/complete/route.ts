@@ -1,5 +1,6 @@
 import { requireAgentAuth } from "@/lib/agent-auth";
 import { getChatById } from "@/lib/db/queries";
+import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 import { completeInterviewSession } from "@/lib/study/session-service";
 
 export async function POST(
@@ -28,7 +29,7 @@ export async function POST(
 
   return Response.json({
     chatId,
-    agentSession: result.agentSession,
+    agentSession: toAgentSessionDTO(result.agentSession),
     messages: result.messages,
   });
 }

@@ -4,6 +4,7 @@ import {
   getChatById,
   getMessagesByChatId,
 } from "@/lib/db/queries";
+import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 
 export async function GET(
   request: Request,
@@ -29,7 +30,7 @@ export async function GET(
 
   return Response.json({
     chatId,
-    agentSession,
+    agentSession: toAgentSessionDTO(agentSession),
     messages: messages.map((m) => ({
       id: m.id,
       role: m.role,
