@@ -18,6 +18,7 @@ import {
   labelForCondition,
   promptForCondition,
 } from "@/lib/study/conditions";
+import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 import { verifyInvitation } from "@/lib/study/invitations";
 import { generateUUID } from "@/lib/utils";
 
@@ -128,7 +129,7 @@ export async function POST(request: Request) {
     return Response.json({
       chatId: active.chatId,
       condition: active.condition,
-      agentSession: active,
+      agentSession: toAgentSessionDTO(active),
       idempotent: true,
       reason: "participant_has_active_session",
     });
@@ -175,6 +176,6 @@ export async function POST(request: Request) {
   return Response.json({
     chatId,
     condition,
-    agentSession,
+    agentSession: toAgentSessionDTO(agentSession),
   });
 }
