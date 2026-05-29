@@ -34,6 +34,8 @@ All paths are relative to this site's origin.
 POST /api/agent/v1/sessions
 POST /api/agent/v1/sessions/:chatId/turns
 POST /api/agent/v1/sessions/:chatId/complete
+GET  /api/agent/v1/sessions/:chatId/survey
+POST /api/agent/v1/sessions/:chatId/survey
 GET  /api/agent/v1/sessions/:chatId
 ```
 
@@ -113,9 +115,103 @@ Response:
 POST /api/agent/v1/sessions/:chatId/complete
 ```
 
-Marks the session as finished. Call this when the interview is over so the operator can distinguish completed runs from abandoned ones.
+Marks the chatbot portion of the session as finished. Call this when the interview is over so the operator can distinguish completed runs from abandoned ones.
 
-## 4. Fetch the transcript (optional)
+Response:
+
+```json
+{
+  "chatId": "…",
+  "completionCode": "Ns4xvNx_ZNXP65VZ",
+  "agentSession": { "…": "…" },
+  "survey": {
+    "page": 1,
+    "totalPages": 16,
+    "questions": [ /* … see §4 … */ ]
+  }
+}
+```
+
+- `completionCode` — opaque 16-char base64url string. Persist it. It is the join key linking this session in our database to the Qualtrics response row, and is the only embedded-data field the survey carries.
+- `survey` — the first page of the post-interview survey, already initialized server-side. **The interview is not over until this survey is submitted**: continue to §4 immediately, using the same bearer key. `survey` is `null` only when Qualtrics is not configured for this deployment (e.g. local dev without `QUALTRICS_*` env vars) — in that case you can stop here.
+
+## 4. Walk the post-interview survey
+
+After `POST /complete`, the partner agent (not the interviewee — same key, but now answering as the partner platform) walks a short Qualtrics survey one page at a time. Pages are served in order; you POST answers for the current page and the server returns the next page. The final POST submits the whole response to Qualtrics in one shot.
+
+### 4a. Fetch the current page
+
+```http
+GET /api/agent/v1/sessions/:chatId/survey
+```
+
+Returns either `{ done: false, page, totalPages, questions: [...] }` or, once submitted, `{ done: true, totalPages, status: "submitted", qualtricsResponseId: "R_…" }`. You only need to call GET if you didn't already receive the page from `/complete` or you're resuming after a crash — normally the POST response chains directly to the next page.
+
+Each question in `questions` has one of these shapes:
+
+```jsonc
+// free text
+{ "qid": "QID1", "type": "text", "prompt": "…", "answerKey": "QID1_TEXT" }
+
+// single-choice (multiple-choice)
+{ "qid": "QID8", "type": "choice", "prompt": "…", "answerKey": "QID8",
+  "choices": [ { "value": "1", "label": "Yes" }, { "value": "2", "label": "No" } ] }
+
+// Likert matrix (one scale point per row)
+{ "qid": "QID3", "type": "matrix_likert", "prompt": "…",
+  "rows":  [ { "answerKey": "QID3_1", "label": "row 1" }, … ],
+  "scale": [ { "value": "1", "label": "Strongly disagree" }, … ] }
+
+// slider (one value per row)
+{ "qid": "QID5", "type": "slider", "prompt": "…",
+  "rows": [ { "answerKey": "QID5_1", "label": "row 1" }, … ],
+  "min": 0, "max": 100 }
+```
+
+### 4b. Submit a page
+
+```http
+POST /api/agent/v1/sessions/:chatId/survey
+```
+
+Request body:
+
+```json
+{
+  "page": 1,
+  "answers": {
+    "QID1_TEXT": "Yes, my interviewer felt warm.",
+    "QID3_1": "5",
+    "QID8": "1",
+    "QID5_1": "73"
+  }
+}
+```
+
+- `page` (required): the page number you are answering. Must equal the server's current cursor — past pages are rejected with `409 wrong_page` to prevent silent overwrites. Re-POSTing the **current** page (e.g. on retry) is allowed and overwrites.
+- `answers` (required): a map keyed by every `answerKey` on the page (no extras, no missing). Values are strings. For `choice` and `matrix_likert`, the string must be one of the listed `value`s. For `slider`, the string must parse to a number in `[min, max]`.
+
+Response (non-final page):
+
+```json
+{ "done": false, "page": 2, "totalPages": 16 }
+```
+
+Response (final page, on success — submits to Qualtrics):
+
+```json
+{ "done": true, "page": 16, "totalPages": 16, "qualtricsResponseId": "R_…" }
+```
+
+The `qualtricsResponseId` is the Qualtrics row anchor. Together with `completionCode` on the Supabase side, the two stores can be joined bidirectionally.
+
+### 4c. Failure & retry
+
+- Network or Qualtrics failure on the final POST returns `502` with `error: "qualtrics_submit_failed:<status>"`. The answers are already persisted server-side, so simply retrying the same final POST will re-submit (the cursor stays on the final page).
+- If the survey has already been submitted for this `chatId`, GET returns `{ done: true, … }` and POST short-circuits to the same terminal payload — idempotent.
+- `409 interview_not_completed` means you skipped step 3 — call `/complete` first.
+
+## 5. Fetch the transcript (optional)
 
 ```http
 GET /api/agent/v1/sessions/:chatId

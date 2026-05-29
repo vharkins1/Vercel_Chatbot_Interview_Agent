@@ -147,7 +147,8 @@ async function main() {
   });
   console.log("✓ posted 1 turn");
 
-  // 4. Complete.
+  // 4. Complete. The new contract returns the first survey page inline so the
+  // partner agent naturally continues without an extra GET round-trip.
   const complete = await api(
     "POST",
     `/api/agent/v1/sessions/${chatId}/complete`,
@@ -156,21 +157,35 @@ async function main() {
   if (complete.status !== 200) {
     throw new Error(`complete failed: ${complete.status} ${complete.raw}`);
   }
-  console.log("✓ completed interview");
+  const completeBody = JSON.parse(complete.raw) as {
+    completionCode: string;
+    survey: {
+      page: number;
+      totalPages: number;
+      questions: AgentQuestion[];
+    } | null;
+  };
+  console.log(
+    `✓ completed interview (completionCode=${completeBody.completionCode}, survey handoff=${
+      completeBody.survey ? `page ${completeBody.survey.page}/${completeBody.survey.totalPages}` : "null"
+    })`
+  );
+  if (!completeBody.survey) {
+    throw new Error("expected /complete to return first survey page");
+  }
 
-  // 5. Walk every page of /survey.
+  // 5. Walk every page. Seed the loop with the page returned by /complete so
+  // we exercise the new chain (no upfront GET needed).
   let pageCount = 0;
   let qualtricsResponseId: string | null = null;
+  let nextPage: {
+    done: false;
+    page: number;
+    totalPages: number;
+    questions: AgentQuestion[];
+  } | null = { done: false, ...completeBody.survey };
   for (;;) {
-    const get = await api(
-      "GET",
-      `/api/agent/v1/sessions/${chatId}/survey`,
-      apiKey
-    );
-    if (get.status !== 200) {
-      throw new Error(`GET /survey failed: ${get.status} ${get.raw}`);
-    }
-    const page = JSON.parse(get.raw) as
+    let page:
       | {
           done: false;
           page: number;
@@ -178,6 +193,20 @@ async function main() {
           questions: AgentQuestion[];
         }
       | { done: true; qualtricsResponseId: string };
+    if (nextPage) {
+      page = nextPage;
+      nextPage = null;
+    } else {
+      const get = await api(
+        "GET",
+        `/api/agent/v1/sessions/${chatId}/survey`,
+        apiKey
+      );
+      if (get.status !== 200) {
+        throw new Error(`GET /survey failed: ${get.status} ${get.raw}`);
+      }
+      page = JSON.parse(get.raw) as typeof page;
+    }
     if (page.done) {
       qualtricsResponseId = page.qualtricsResponseId;
       break;
