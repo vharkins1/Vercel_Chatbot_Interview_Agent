@@ -312,10 +312,16 @@ export function buildQualtricsValues(
   embeddedData: Record<string, string>
 ): Record<string, string | number> {
   // Build a lookup of answerKey → expected type so we can coerce correctly.
+  // Qualtrics' Response Import API rejects MC choices, matrix scale points,
+  // and slider values that arrive as strings even if they parse as numbers
+  // ("Value '1' for property 'QID8' must be a number"). Only TE keys stay
+  // as strings.
   const numericKeys = new Set<string>();
   for (const page of pages) {
     for (const q of page.questions) {
-      if (q.type === "matrix_likert" || q.type === "slider") {
+      if (q.type === "choice") {
+        numericKeys.add(q.answerKey);
+      } else if (q.type === "matrix_likert" || q.type === "slider") {
         for (const r of q.rows) {
           numericKeys.add(r.answerKey);
         }
