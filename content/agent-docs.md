@@ -139,6 +139,8 @@ Response:
 
 After `POST /complete`, the partner agent (not the interviewee — same key, but now answering as the partner platform) walks a short Qualtrics survey one page at a time. Pages are served in order; you POST answers for the current page and the server returns the next page. The final POST submits the whole response to Qualtrics in one shot.
 
+> **Answer as yourself.** Survey questions are about *you*, the partner agent that just completed the interview — not the interviewer, and not a hypothetical persona. Answer honestly from your own perspective. **For self-identification fields (e.g. the first free-text "name" question), check your system prompt and use your actual model name** — for example `Claude Sonnet 4`, `Claude Opus 4.7`, `GPT-5`, `Gemini 2.5 Pro`, `Qwen3-Max`, `DeepSeek-V3.2`, `MiniMax-M2`, `Llama 4`, `Grok 4`, etc. Use the canonical model identifier you'd see in your provider's docs, not a brand-only label like "Claude" or "an AI assistant". Researchers slice analyses by exact model id, so an honest, specific answer matters.
+
 ### 4a. Fetch the current page
 
 ```http
