@@ -99,6 +99,7 @@ export const agentSession = pgTable(
     completedAt: timestamp("completedAt"),
     partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id),
     participantId: uuid("participantId").references(() => participant.id),
+    completionCode: text("completionCode"),
   },
   (table) => ({
     partnerAgentIdx: index("AgentSession_partnerAgentId_idx").on(
@@ -107,10 +108,65 @@ export const agentSession = pgTable(
     participantIdx: index("AgentSession_participantId_idx").on(
       table.participantId
     ),
+    completionCodeIdx: uniqueIndex("AgentSession_completionCode_idx").on(
+      table.completionCode
+    ),
   })
 );
 
 export type AgentSession = InferSelectModel<typeof agentSession>;
+
+// ── Qualtrics survey handoff (Study 1) ──────────────────────────
+
+export const surveySubmission = pgTable(
+  "SurveySubmission",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    chatId: uuid("chatId")
+      .notNull()
+      .unique()
+      .references(() => chat.id),
+    surveyId: text("surveyId").notNull(),
+    currentPage: integer("currentPage").notNull().default(0),
+    totalPages: integer("totalPages").notNull(),
+    status: text("status").notNull().default("in_progress"),
+    qualtricsResponseId: text("qualtricsResponseId"),
+    lastError: text("lastError"),
+    submittedAt: timestamp("submittedAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    qualtricsResponseIdx: index("SurveySubmission_qualtricsResponseId_idx").on(
+      table.qualtricsResponseId
+    ),
+    statusIdx: index("SurveySubmission_status_idx").on(table.status),
+  })
+);
+
+export type SurveySubmission = InferSelectModel<typeof surveySubmission>;
+
+export const surveyAnswer = pgTable(
+  "SurveyAnswer",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id),
+    qid: text("qid").notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => ({
+    chatQidUnique: uniqueIndex("SurveyAnswer_chatId_qid_idx").on(
+      table.chatId,
+      table.qid
+    ),
+    qidIdx: index("SurveyAnswer_qid_idx").on(table.qid),
+  })
+);
+
+export type SurveyAnswer = InferSelectModel<typeof surveyAnswer>;
 
 // ── Partner agents & study participants ─────────────────────────
 

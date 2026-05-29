@@ -1,5 +1,7 @@
 import "server-only";
 
+import { randomBytes } from "node:crypto";
+
 import { openaiClient } from "@/lib/ai/providers";
 import {
   createAgentChatAndSession,
@@ -221,7 +223,16 @@ export async function completeInterviewSession({
     return null;
   }
 
-  await updateAgentSession({ id: session.id, completedAt: new Date() });
+  // Mint completionCode on first /complete; preserve it on re-calls so the
+  // Qualtrics join key never moves once issued.
+  const completionCode =
+    session.completionCode ?? randomBytes(12).toString("base64url");
+
+  await updateAgentSession({
+    id: session.id,
+    completedAt: new Date(),
+    ...(session.completionCode ? {} : { completionCode }),
+  });
 
   const [refreshed, messages] = await Promise.all([
     getAgentSessionByChatId({ chatId }),
