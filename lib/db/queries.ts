@@ -30,6 +30,10 @@ import {
   type PartnerAgent,
   participant,
   partnerAgent,
+  type SurveyAnswer,
+  type SurveySubmission,
+  surveyAnswer,
+  surveySubmission,
   type User,
   user,
 } from "./schema";
@@ -476,6 +480,7 @@ export async function updateAgentSession({
   completedAt?: Date;
   interviewerModel?: string;
   partnerModel?: string;
+  completionCode?: string;
 }) {
   try {
     return await db
@@ -509,6 +514,83 @@ export async function incrementAgentSessionTokens({
   } catch (_error) {
     // Best-effort accounting; do not fail a successful turn on stat updates.
   }
+}
+
+// ── Survey submission (Qualtrics handoff) ──────────────────────
+
+export async function getSurveySubmission({
+  chatId,
+}: {
+  chatId: string;
+}): Promise<SurveySubmission | null> {
+  const [row] = await db
+    .select()
+    .from(surveySubmission)
+    .where(eq(surveySubmission.chatId, chatId))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function createSurveySubmission({
+  chatId,
+  surveyId,
+  totalPages,
+}: {
+  chatId: string;
+  surveyId: string;
+  totalPages: number;
+}): Promise<SurveySubmission> {
+  const [row] = await db
+    .insert(surveySubmission)
+    .values({ chatId, surveyId, totalPages })
+    .returning();
+  return row;
+}
+
+export async function updateSurveySubmission({
+  chatId,
+  ...patch
+}: {
+  chatId: string;
+  currentPage?: number;
+  status?: string;
+  qualtricsResponseId?: string;
+  lastError?: string | null;
+  submittedAt?: Date;
+}): Promise<void> {
+  await db
+    .update(surveySubmission)
+    .set({ ...patch, updatedAt: new Date() })
+    .where(eq(surveySubmission.chatId, chatId));
+}
+
+export async function getSurveyAnswers({
+  chatId,
+}: {
+  chatId: string;
+}): Promise<SurveyAnswer[]> {
+  return await db
+    .select()
+    .from(surveyAnswer)
+    .where(eq(surveyAnswer.chatId, chatId));
+}
+
+// Upsert (chatId, qid) → value. Re-submitting the same page overwrites.
+export async function upsertSurveyAnswers({
+  chatId,
+  answers,
+}: {
+  chatId: string;
+  answers: Array<{ qid: string; value: string }>;
+}): Promise<void> {
+  if (answers.length === 0) return;
+  await db
+    .insert(surveyAnswer)
+    .values(answers.map((a) => ({ chatId, qid: a.qid, value: a.value })))
+    .onConflictDoUpdate({
+      target: [surveyAnswer.chatId, surveyAnswer.qid],
+      set: { value: sql.raw(`EXCLUDED."value"`) },
+    });
 }
 
 // ── Partner agents & participants ──────────────────────────────
@@ -561,6 +643,19 @@ export async function createPartnerAgent({
       "Failed to create partner agent"
     );
   }
+}
+
+export async function getParticipantById({
+  id,
+}: {
+  id: string;
+}): Promise<Participant | null> {
+  const [row] = await db
+    .select()
+    .from(participant)
+    .where(eq(participant.id, id))
+    .limit(1);
+  return row ?? null;
 }
 
 export async function upsertParticipant({
