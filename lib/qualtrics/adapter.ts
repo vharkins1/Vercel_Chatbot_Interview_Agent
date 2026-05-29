@@ -87,11 +87,15 @@ function blockPages(block: QualtricsBlock): string[][] {
   for (const el of block.BlockElements) {
     if (el.Type === "Page Break") {
       pages.push([]);
-    } else if (
+      continue;
+    }
+    if (
       el.Type === "Question" &&
       typeof (el as { QuestionID?: string }).QuestionID === "string"
     ) {
-      pages.at(-1).push((el as { QuestionID: string }).QuestionID);
+      // pages always has at least one entry; never undefined here.
+      const current = pages[pages.length - 1];
+      current.push((el as { QuestionID: string }).QuestionID);
     }
   }
   return pages.filter((p) => p.length > 0);
