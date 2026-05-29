@@ -1,0 +1,6 @@
+# Local-only directories that should not ship to Vercel deployments.
+# (`vercel --prod` uploads the working tree, including untracked files,
+# so anything not in .gitignore but also not meant for prod goes here.)
+analysis/
+opencode.json
+.revert-point
