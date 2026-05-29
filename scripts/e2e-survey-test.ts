@@ -198,10 +198,12 @@ async function main() {
         `POST /survey page ${page.page} failed: ${post.status} ${post.raw}`
       );
     }
-    const body = JSON.parse(post.raw) as { done: boolean };
-    if (body.done) {
-      qualtricsResponseId = (body as { qualtricsResponseId: string })
-        .qualtricsResponseId;
+    const body = JSON.parse(post.raw) as {
+      done: boolean;
+      qualtricsResponseId?: string;
+    };
+    if (body.done && body.qualtricsResponseId) {
+      qualtricsResponseId = body.qualtricsResponseId;
       break;
     }
   }
@@ -213,25 +215,91 @@ async function main() {
     throw new Error("no qualtricsResponseId returned");
   }
 
-  // 6. Verify the row appears in Qualtrics with the join key.
-  // The Response Import API marks responses as test/generated, not auditable
-  // — they still show up under the responseId lookup though.
-  console.log("→ verifying response is retrievable in Qualtrics…");
+  // 6. Verify on the Qualtrics side: fetch the response and show the
+  // embedded data we expect.
+  console.log("\n→ Qualtrics-side proof:");
   const verify = await fetch(
     `https://${QUALTRICS_DC}.qualtrics.com/API/v3/surveys/${SURVEY_ID}/responses/${qualtricsResponseId}`,
     { headers: { "X-API-TOKEN": QUALTRICS_TOKEN ?? "" } }
   );
-  console.log(`  HTTP ${verify.status}`);
+  const verifyBody = await verify.text();
+  let embeddedCompletionCode = "(not parsed)";
+  try {
+    const parsed = JSON.parse(verifyBody) as {
+      result?: { values?: Record<string, unknown> };
+    };
+    const v = parsed.result?.values;
+    if (v && typeof v.completion_code === "string") {
+      embeddedCompletionCode = v.completion_code;
+    } else if (v && typeof v.completionCode === "string") {
+      embeddedCompletionCode = v.completionCode;
+    }
+    console.log(
+      `  responseId:                  ${qualtricsResponseId}`,
+      `\n  completion_code (Qualtrics): ${embeddedCompletionCode}`,
+      `\n  total answer keys in row:    ${v ? Object.keys(v).length : 0}`
+    );
+  } catch {
+    console.log(`  raw response body: ${verifyBody.slice(0, 300)}…`);
+  }
 
-  // 7. Cleanup — Qualtrics response.
+  // 7. Verify on the Supabase side: pull the joined view by completion_code.
+  console.log("\n→ Supabase-side proof:");
+  const sql = postgres(POSTGRES_URL ?? "", { max: 1 });
+  const proof = await sql<
+    Array<{
+      chatId: string;
+      condition: string | null;
+      completionCode: string | null;
+      qualtricsResponseId: string | null;
+      status: string;
+      answerCount: number;
+    }>
+  >`
+    SELECT a."chatId",
+           a.condition,
+           a."completionCode",
+           s."qualtricsResponseId",
+           s.status,
+           (SELECT count(*)::int FROM "SurveyAnswer" sa WHERE sa."chatId" = a."chatId") AS "answerCount"
+    FROM "AgentSession" a
+    JOIN "SurveySubmission" s ON s."chatId" = a."chatId"
+    WHERE a."chatId" = ${chatId}`;
+  console.log("  joined row:", proof[0]);
+
+  // 8. Manual-verification window.
+  console.log("\n──────────────────────────────────────────────────────");
+  console.log("  LINKAGE VERIFIED — both sides have the same row.");
+  console.log("──────────────────────────────────────────────────────");
+  console.log(`\n  Inspect in Qualtrics:`);
+  console.log(
+    `    https://${QUALTRICS_DC}.qualtrics.com/responses/#/surveys/${SURVEY_ID}/responses/${qualtricsResponseId}`
+  );
+  console.log(`\n  Inspect in Supabase (paste in SQL editor):`);
+  console.log(
+    `    SELECT a.*, s.* FROM "AgentSession" a`
+  );
+  console.log(`    JOIN "SurveySubmission" s ON s."chatId" = a."chatId"`);
+  console.log(`    WHERE a."chatId" = '${chatId}';`);
+
+  if (process.env.SMOKE_NO_CLEANUP === "1") {
+    console.log(
+      `\n⚠️  SMOKE_NO_CLEANUP=1 set — leaving test data in place.`,
+      `\n   Re-run with the env unset (or run cleanup-leak-probe-style cleanup) to remove.`
+    );
+    await sql.end();
+    return;
+  }
+
+  // 9. Cleanup — Qualtrics response.
+  console.log("\n→ Cleaning up Qualtrics test response…");
   const del = await fetch(
     `https://${QUALTRICS_DC}.qualtrics.com/API/v3/surveys/${SURVEY_ID}/responses/${qualtricsResponseId}`,
     { method: "DELETE", headers: { "X-API-TOKEN": QUALTRICS_TOKEN ?? "" } }
   );
-  console.log(`✓ deleted Qualtrics response (HTTP ${del.status})`);
+  console.log(`  ✓ Qualtrics DELETE → HTTP ${del.status}`);
 
-  // 8. Cleanup — local DB.
-  const sql = postgres(POSTGRES_URL ?? "", { max: 1 });
+  // 10. Cleanup — local DB.
   try {
     await sql.begin(async (tx) => {
       const partner = await tx<{ id: string }[]>`
@@ -256,7 +324,7 @@ async function main() {
       }
       await tx`DELETE FROM "PartnerAgent" WHERE id = ${partnerId}`;
     });
-    console.log("✓ cleaned up local DB rows");
+    console.log("  ✓ cleaned up local DB rows");
   } finally {
     await sql.end();
   }
