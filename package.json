@@ -24,6 +24,7 @@
     "db:create-session-transcript-view": "tsx scripts/create-session-transcript-view.ts",
     "db:export-sessions": "tsx scripts/export-sessions.ts",
     "db:export-transcripts": "tsx scripts/export-transcripts.ts",
+    "db:export-masterfile": "tsx scripts/export-masterfile.ts",
     "db:audit": "tsx scripts/audit-data.ts",
     "db:count-participants": "tsx scripts/count-participants.ts",
     "db:ensure-survey-fields": "tsx scripts/ensure-survey-fields.ts",
