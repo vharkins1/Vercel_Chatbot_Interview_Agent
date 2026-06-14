@@ -117,6 +117,13 @@ export type QualtricsResponseSubmission = {
   responseId: string;
 };
 
+// A single response row read back from Qualtrics. `values` holds both the
+// declared embedded data (completion_code, chat_id, participant_seq, …) and
+// the question answers, keyed by Qualtrics field name.
+export type QualtricsResponse = {
+  values: Record<string, unknown>;
+};
+
 export async function getSurveyMeta(
   surveyId: string
 ): Promise<QualtricsResult<QualtricsSurveyMeta>> {
@@ -150,6 +157,16 @@ export async function submitResponse(
     "POST",
     `/API/v3/surveys/${surveyId}/responses`,
     { values }
+  );
+}
+
+export async function getResponse(
+  surveyId: string,
+  responseId: string
+): Promise<QualtricsResult<QualtricsResponse>> {
+  return await request<QualtricsResponse>(
+    "GET",
+    `/API/v3/surveys/${surveyId}/responses/${responseId}`
   );
 }
 

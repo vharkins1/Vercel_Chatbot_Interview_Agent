@@ -2,6 +2,7 @@ import { createClient } from "redis";
 
 import { isProductionEnvironment } from "@/lib/constants";
 import { ChatbotError } from "@/lib/errors";
+import { hashIp } from "@/lib/request-ip";
 
 const MAX_MESSAGES = 100;
 const MAX_PARTNER_SESSIONS_PER_HOUR = 50;
@@ -31,7 +32,9 @@ export async function checkIpRateLimit(ip: string | undefined) {
   }
 
   try {
-    const key = `ip-rate-limit:${ip}`;
+    // Never put the raw IP (PII) in Redis. Hashing is deterministic, so the
+    // same IP still maps to the same key and rate limiting is unaffected.
+    const key = `ip-rate-limit:${hashIp(ip)}`;
     const [count] = await redis
       .multi()
       .incr(key)

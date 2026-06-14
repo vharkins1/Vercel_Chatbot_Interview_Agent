@@ -134,6 +134,27 @@
       "when": 1793000660000,
       "tag": "0018_survey_handoff",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793000720000,
+      "tag": "0019_participant_seq",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793000780000,
+      "tag": "0020_ip_hash_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1793000840000,
+      "tag": "0021_drop_raw_ip",
+      "breakpoints": true
     }
   ]
 }

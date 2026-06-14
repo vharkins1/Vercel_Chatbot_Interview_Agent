@@ -10,7 +10,8 @@ import {
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 import { checkPartnerSessionRateLimit } from "@/lib/ratelimit";
-import { getRequestIp } from "@/lib/request-ip";
+import { getRequestIp, hashIp } from "@/lib/request-ip";
+import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 import {
   ALL_CONDITIONS,
   type Condition,
@@ -18,7 +19,6 @@ import {
   labelForCondition,
   promptForCondition,
 } from "@/lib/study/conditions";
-import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 import { verifyInvitation } from "@/lib/study/invitations";
 import { generateUUID } from "@/lib/utils";
 
@@ -90,7 +90,6 @@ export async function POST(request: Request) {
     ) {
       return Response.json({
         chatId: stored.redeemedByChatId,
-        condition: stored.condition,
         idempotent: true,
         reason: "token_already_redeemed_by_caller",
       });
@@ -128,7 +127,6 @@ export async function POST(request: Request) {
   if (active) {
     return Response.json({
       chatId: active.chatId,
-      condition: active.condition,
       agentSession: toAgentSessionDTO(active),
       idempotent: true,
       reason: "participant_has_active_session",
@@ -158,6 +156,8 @@ export async function POST(request: Request) {
 
   const { promptId, version } = promptForCondition(condition);
 
+  const ip = getRequestIp(request);
+
   const { agentSession } = await createAgentChatAndSession({
     chatId,
     partnerAgentId: auth.partnerAgentId,
@@ -170,12 +170,11 @@ export async function POST(request: Request) {
     condition,
     conditionLabel: labelForCondition(condition),
     partnerModel: parsed.partnerModel,
-    startIp: getRequestIp(request),
+    startIpHash: hashIp(ip),
   });
 
   return Response.json({
     chatId,
-    condition,
     agentSession: toAgentSessionDTO(agentSession),
   });
 }

@@ -225,11 +225,19 @@ export async function POST(
   await updateSurveySubmission({ chatId, currentPage: nextPage });
 
   const allAnswers = await getSurveyAnswers({ chatId });
-  // Only completion_code is declared as Embedded Data on the survey. condition,
-  // pid, source, and partnerAgentId/userId all flow back through Supabase via
-  // AgentSession.completionCode → join.
+  // Embedded Data pushed to Qualtrics. These must be declared as Embedded Data
+  // fields in the Qualtrics Survey Flow or Qualtrics silently drops them on
+  // import (see docs/goal.md "Qualtrics embedded data"):
+  //   - completion_code: the join key back to AgentSession.
+  //   - chat_id:         the session UUID, for direct 1:1 traceability.
+  //   - participant_seq: the monotonic participant counter (1, 2, 3, …) so each
+  //                      response row is countable/distinguishable at a glance.
+  // condition, pid, source, and partnerAgentId/userId still flow back through
+  // Supabase via AgentSession.completionCode → join.
   const embedded: Record<string, string> = {
     completion_code: session.completionCode,
+    chat_id: chatId,
+    participant_seq: session.seq == null ? "" : String(session.seq),
   };
   const values = buildQualtricsValues(
     allAnswers.map((a) => ({ qid: a.qid, value: a.value })),

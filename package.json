@@ -25,7 +25,10 @@
     "db:export-sessions": "tsx scripts/export-sessions.ts",
     "db:export-transcripts": "tsx scripts/export-transcripts.ts",
     "db:audit": "tsx scripts/audit-data.ts",
+    "db:count-participants": "tsx scripts/count-participants.ts",
+    "db:ensure-survey-fields": "tsx scripts/ensure-survey-fields.ts",
     "db:wipe-chat-data": "tsx scripts/wipe-chat-data.ts",
+    "e2e:trace": "tsx scripts/trace-agent-e2e.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
   },
   "dependencies": {

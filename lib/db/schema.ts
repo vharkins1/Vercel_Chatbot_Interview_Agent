@@ -41,12 +41,12 @@ export const chat = pgTable(
       .default("private"),
     partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id),
     participantId: uuid("participantId").references(() => participant.id),
-    startIp: text("startIp"),
+    startIpHash: text("startIpHash"),
   },
   (table) => ({
     partnerAgentIdx: index("Chat_partnerAgentId_idx").on(table.partnerAgentId),
     participantIdx: index("Chat_participantId_idx").on(table.participantId),
-    startIpIdx: index("Chat_startIp_idx").on(table.startIp),
+    startIpHashIdx: index("Chat_startIpHash_idx").on(table.startIpHash),
   })
 );
 
@@ -64,10 +64,10 @@ export const message = pgTable(
     attachments: json("attachments").notNull(),
     createdAt: timestamp("createdAt").notNull(),
     partnerModel: text("partnerModel"),
-    ipAddress: text("ipAddress"),
+    ipHash: text("ipHash"),
   },
   (table) => ({
-    ipAddressIdx: index("Message_v2_ipAddress_idx").on(table.ipAddress),
+    ipHashIdx: index("Message_v2_ipHash_idx").on(table.ipHash),
   })
 );
 
@@ -79,6 +79,12 @@ export const agentSession = pgTable(
   "AgentSession",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
+    // Monotonic, human-friendly participant counter. Assigned DB-side via a
+    // Postgres sequence (default nextval) on insert — see migration 0019. Null
+    // for sessions created before the sequence was introduced; 1,2,3,… from the
+    // first session after. Surfaced to partners on the session DTO and pushed to
+    // Qualtrics as the `participant_seq` embedded-data field.
+    seq: integer("seq"),
     chatId: uuid("chatId")
       .notNull()
       .unique()

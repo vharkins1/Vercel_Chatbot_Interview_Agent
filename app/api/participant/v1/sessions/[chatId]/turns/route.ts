@@ -4,7 +4,7 @@ import {
   PARTICIPANT_COOKIE,
   verifyParticipantSession,
 } from "@/lib/participant-auth";
-import { getRequestIp } from "@/lib/request-ip";
+import { getRequestIp, hashIp } from "@/lib/request-ip";
 import { executeTurn } from "@/lib/study/session-service";
 
 export const maxDuration = 60;
@@ -42,10 +42,12 @@ export async function POST(
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
+  const ip = getRequestIp(request);
+
   const result = await executeTurn({
     chatId,
     text: parsed.text,
-    ipAddress: getRequestIp(request),
+    ipHash: hashIp(ip),
   });
   if (!result.ok) {
     return Response.json({ error: result.error }, { status: result.status });

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { requireAgentAuth } from "@/lib/agent-auth";
 import { getChatById } from "@/lib/db/queries";
-import { getRequestIp } from "@/lib/request-ip";
+import { getRequestIp, hashIp } from "@/lib/request-ip";
 import { executeTurn } from "@/lib/study/session-service";
 
 export const maxDuration = 60;
@@ -38,12 +38,14 @@ export async function POST(
     return Response.json({ error: "forbidden" }, { status: 403 });
   }
 
+  const ip = getRequestIp(request);
+
   const result = await executeTurn({
     chatId,
     text: parsed.text,
     userMessageId: parsed.messageId,
     partnerModel: parsed.partnerModel,
-    ipAddress: getRequestIp(request),
+    ipHash: hashIp(ip),
   });
 
   if (!result.ok) {

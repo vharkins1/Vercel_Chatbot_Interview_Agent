@@ -1,10 +1,14 @@
 import { z } from "zod";
-import { getInvitationByJti, redeemInvitation } from "@/lib/db/queries";
+import {
+  getInvitationByJti,
+  hasChatWithStartIpHash,
+  redeemInvitation,
+} from "@/lib/db/queries";
 import {
   buildSessionCookie,
   signParticipantSession,
 } from "@/lib/participant-auth";
-import { getRequestIp } from "@/lib/request-ip";
+import { getRequestIp, hashIp } from "@/lib/request-ip";
 import { isCondition } from "@/lib/study/conditions";
 import { verifyInvitation } from "@/lib/study/invitations";
 import { createInterviewSession } from "@/lib/study/session-service";
@@ -50,6 +54,33 @@ export async function POST(request: Request) {
     return Response.json({ error: "invalid_condition" }, { status: 500 });
   }
 
+  // One-IP-per-participant check. We hash the request IP (never store the raw
+  // IP — see lib/request-ip.ts) and ask whether we've already started a HUMAN
+  // interview from that same hashed source. End goal: if seen, block; if not,
+  // let them in. For now we only COMPUTE + LOG the comparison and leave the
+  // user in — the actual block is intentionally commented out below so we can
+  // observe how often it would fire before enforcing it.
+  //
+  // This whole check is on a NON-FATAL path: it must never stop a legitimate
+  // interview from starting. If the lookup errors we fail open (treat as
+  // not-seen) and log — and even once the block is enabled, failing open is
+  // the safe default for a study (better to let a dup through than to wrongly
+  // reject a real participant on an infra hiccup).
+  const ipHash = hashIp(getRequestIp(request));
+  let seenBefore = false;
+  try {
+    seenBefore = await hasChatWithStartIpHash({ startIpHash: ipHash });
+  } catch (error) {
+    console.error("[ip-dedup] seen-before check failed (failing open):", error);
+  }
+  if (seenBefore) {
+    console.warn(
+      `[ip-dedup] repeat IP hash at participant session start (would block) ipHash=${ipHash}`
+    );
+    // TODO(enable to enforce): block a repeat participant from the same IP.
+    // return Response.json({ error: "already_participated" }, { status: 403 });
+  }
+
   // Pre-launch testing mode: lets the research team share one link.
   // MUST be unset in prod before real participants — see docs/goal.md
   // pre-launch checklist.
@@ -87,7 +118,7 @@ export async function POST(request: Request) {
     participantExternalId,
     condition,
     title: "Participant interview",
-    startIp: getRequestIp(request),
+    startIpHash: ipHash,
   });
 
   const { token, maxAge } = await signParticipantSession({
@@ -95,7 +126,10 @@ export async function POST(request: Request) {
     jti: claims.jti,
   });
 
-  return new Response(JSON.stringify({ chatId, condition }), {
+  // Condition is intentionally NOT returned to the browser — it's the blinded
+  // study arm and must stay staff-only. It's persisted on AgentSession above and
+  // recovered server-side at analysis time via the chat_id/completion_code join.
+  return new Response(JSON.stringify({ chatId }), {
     status: 200,
     headers: {
       "content-type": "application/json",
