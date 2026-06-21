@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { requireAgentAuth } from "@/lib/agent-auth";
+import { type AgentAuthResult, requireAgentAuth } from "@/lib/agent-auth";
 import {
   createAgentChatAndSession,
   getActiveAgentSessionForParticipant,
@@ -43,6 +43,25 @@ export async function POST(request: Request) {
   const auth = await requireAgentAuth(request);
   if (!auth.ok) return auth.response;
 
+  // Error boundary: without this, any throw below (missing OPENAI_*_PROMPT_ID,
+  // unseeded question bank, DB failure) escapes the route handler and Next.js
+  // returns a bare HTTP 500 with an empty body — a silent crash that's invisible
+  // in logs. Map ChatbotError to its intended status/body; log + 500 the rest so
+  // the real cause shows up in the function logs.
+  try {
+    return await createSession(request, auth);
+  } catch (error) {
+    if (error instanceof ChatbotError) {
+      return error.toResponse();
+    }
+    console.error("[POST /api/agent/v1/sessions] unhandled error:", error);
+    return Response.json({ error: "internal_error" }, { status: 500 });
+  }
+}
+
+type AuthOk = Extract<AgentAuthResult, { ok: true }>;
+
+async function createSession(request: Request, auth: AuthOk) {
   try {
     await checkPartnerSessionRateLimit(auth.partnerAgentId);
   } catch (error) {
