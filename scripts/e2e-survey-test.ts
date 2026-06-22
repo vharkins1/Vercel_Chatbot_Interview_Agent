@@ -110,19 +110,24 @@ async function api(
 async function main() {
   console.log(`Target: ${BASE}\n`);
 
-  // 1. Self-issue a partner agent key.
-  const partnerName = `survey-smoke-${Date.now()}`;
+  // 1. Self-issue a partner agent key. The /keys endpoint honors `label` (not
+  // `name`) and returns the generated `partnerName` (`<label>-<hash>`). We MUST
+  // clean up by that returned name — earlier this passed `name` and cleaned up
+  // by a string the server ignored, so DB cleanup silently deleted nothing.
   const keyRes = await fetch(`${BASE}/api/agent/v1/keys`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: partnerName }),
+    body: JSON.stringify({ label: "survey-smoke" }),
   });
   if (!keyRes.ok) {
     throw new Error(
       `key issuance failed: ${keyRes.status} ${await keyRes.text()}`
     );
   }
-  const { apiKey } = (await keyRes.json()) as { apiKey: string };
+  const { apiKey, partnerName } = (await keyRes.json()) as {
+    apiKey: string;
+    partnerName: string;
+  };
   console.log(`✓ issued partner key for ${partnerName}`);
 
   // 2. Create session.
@@ -134,11 +139,10 @@ async function main() {
   if (create.status !== 200) {
     throw new Error(`create failed: ${create.status} ${create.raw}`);
   }
-  const { chatId, condition } = JSON.parse(create.raw) as {
+  const { chatId } = JSON.parse(create.raw) as {
     chatId: string;
-    condition: string;
   };
-  console.log(`✓ created session ${chatId} (condition ${condition})`);
+  console.log(`✓ created session ${chatId}`);
 
   // 3. One turn so the transcript isn't empty.
   await api("POST", `/api/agent/v1/sessions/${chatId}/turns`, apiKey, {
@@ -167,7 +171,9 @@ async function main() {
   };
   console.log(
     `✓ completed interview (completionCode=${completeBody.completionCode}, survey handoff=${
-      completeBody.survey ? `page ${completeBody.survey.page}/${completeBody.survey.totalPages}` : "null"
+      completeBody.survey
+        ? `page ${completeBody.survey.page}/${completeBody.survey.totalPages}`
+        : "null"
     })`
   );
   if (!completeBody.survey) {
@@ -300,21 +306,19 @@ async function main() {
   console.log("\n──────────────────────────────────────────────────────");
   console.log("  LINKAGE VERIFIED — both sides have the same row.");
   console.log("──────────────────────────────────────────────────────");
-  console.log(`\n  Inspect in Qualtrics:`);
+  console.log("\n  Inspect in Qualtrics:");
   console.log(
     `    https://${QUALTRICS_DC}.qualtrics.com/responses/#/surveys/${SURVEY_ID}/responses/${qualtricsResponseId}`
   );
-  console.log(`\n  Inspect in Supabase (paste in SQL editor):`);
-  console.log(
-    `    SELECT a.*, s.* FROM "AgentSession" a`
-  );
+  console.log("\n  Inspect in Supabase (paste in SQL editor):");
+  console.log(`    SELECT a.*, s.* FROM "AgentSession" a`);
   console.log(`    JOIN "SurveySubmission" s ON s."chatId" = a."chatId"`);
   console.log(`    WHERE a."chatId" = '${chatId}';`);
 
   if (process.env.SMOKE_NO_CLEANUP === "1") {
     console.log(
-      `\n⚠️  SMOKE_NO_CLEANUP=1 set — leaving test data in place.`,
-      `\n   Re-run with the env unset (or run cleanup-leak-probe-style cleanup) to remove.`
+      "\n⚠️  SMOKE_NO_CLEANUP=1 set — leaving test data in place.",
+      "\n   Re-run with the env unset (or run cleanup-leak-probe-style cleanup) to remove."
     );
     await sql.end();
     return;
@@ -361,7 +365,7 @@ async function main() {
   console.log("\n================ ✅ smoke test passed ================");
 }
 
-main().catch(async (e) => {
+main().catch((e) => {
   console.error("\n❌ smoke test failed:", e);
   process.exit(1);
 });

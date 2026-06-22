@@ -64,7 +64,7 @@ Request body:
 }
 ```
 
-- `invitationToken` (optional): a one-shot JWT issued by the operator. If supplied, it pins the session to the condition baked into the token and is atomically redeemed on first use; reusing it returns `409 already_redeemed`. **If omitted, the server randomly assigns a condition itself.** Pass a token only when the operator has pre-allocated a specific condition for this participant (e.g. for a planned-distribution batch). For most agent calls you can leave it out. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` and `condition` are returned with `idempotent: true`.
+- `invitationToken` (optional): a one-shot opaque token issued by the operator. If supplied, it is atomically redeemed on first use; reusing it returns `409 already_redeemed`. Pass a token only when the operator has issued one for this participant; for most agent calls you can leave it out. Idempotent retry: if the **same** `(invitationToken, participantExternalId)` pair has already been redeemed, the original `chatId` is returned with `idempotent: true`.
 - `participantExternalId` (required): your stable identifier for this participant. Any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same subject stay grouped longitudinally.
 - `participantMetadata` (optional): free-form JSON. Merged on subsequent calls.
 - `title` (optional): human-readable label for the session.
@@ -75,12 +75,13 @@ Response:
 ```json
 {
   "chatId": "…",
-  "condition": "A|B|C",
-  "agentSession": { "…": "…" }
+  "agentSession": { "seq": 42, "…": "…" }
 }
 ```
 
-Persist `chatId` — every subsequent turn for this session uses it. The `condition` is also written onto `AgentSession.condition` for later analysis and is **not** under your control; it comes from the invitation token.
+Persist `chatId` — every subsequent turn for this session uses it.
+
+`agentSession.seq` is your **participant number** — a monotonic counter (1, 2, 3, …) assigned to this session by the server. It is informational; you don't need to send it anywhere. The server forwards it (and `chatId`) to Qualtrics as embedded data on survey submission so each response row is countable and traceable.
 
 ## 2. Send a turn
 
@@ -132,7 +133,7 @@ Response:
 }
 ```
 
-- `completionCode` — opaque 16-char base64url string. Persist it. It is the join key linking this session in our database to the Qualtrics response row, and is the only embedded-data field the survey carries.
+- `completionCode` — opaque 16-char base64url string. Persist it. It is the primary join key linking this session in our database to the Qualtrics response row. On survey submission the server also writes `chat_id` (this session's id) and `participant_seq` (your participant number) as embedded data, so a Qualtrics row can be traced back without a join.
 - `survey` — the first page of the post-interview survey, already initialized server-side. **The interview is not over until this survey is submitted**: continue to §4 immediately, using the same bearer key. `survey` is `null` only when Qualtrics is not configured for this deployment (e.g. local dev without `QUALTRICS_*` env vars) — in that case you can stop here.
 
 ## 4. Walk the post-interview survey
@@ -229,7 +230,7 @@ Returns the saved transcript. Use only for display, audit, export, or debugging 
 - Two model fields are tracked per session:
   - `interviewerModel` — captured automatically by the server from OpenAI response metadata (e.g. `gpt-4o-mini-2024-07-18`).
   - `partnerModel` — what you self-declare in the request body. Required on `POST /sessions`. The server has no other way to know which model you're running. Each user-turn row in `Message_v2` is also stamped with the value in effect at that turn, so researchers can see if the declared model changed mid-interview.
-- One invitation token = one session (when used). If you need to interview the same participant again, either omit the token (server randomizes) or have the operator mint another.
+- One invitation token = one session (when used). If you need to interview the same participant again, either omit the token or have the operator mint another.
 - A `participantExternalId` may have at most **one non-completed session at a time**. If you call `POST /sessions` for a participant who already has an active interview, the server returns the existing `chatId` with `idempotent: true, reason: "participant_has_active_session"`. To start a fresh session for the same participant, call `POST /sessions/:chatId/complete` on the prior one first.
 - Per-partner rate limit: at most 50 session creations per hour per API key (production only). Beyond that, calls return a rate-limit error. Mint additional partner keys if you need to fan out.
 - The originating IP of each `POST /sessions` and `POST /turns` request is recorded (`Chat.startIp` and `Message_v2.ipAddress` respectively) for audit and integrity analysis. For partner-agent traffic this is typically a datacenter or proxy IP and is not used for participant identification.

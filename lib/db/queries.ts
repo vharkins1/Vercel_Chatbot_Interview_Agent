@@ -9,6 +9,7 @@ import {
   gt,
   gte,
   inArray,
+  isNull,
   lt,
   type SQL,
   sql,
@@ -251,6 +252,45 @@ export async function getChatById({ id }: { id: string }) {
     return selectedChat;
   } catch (_error) {
     throw new ChatbotError("bad_request:database", "Failed to get chat by id");
+  }
+}
+
+/**
+ * Have we already started a HUMAN interview from this (hashed) IP? Used at
+ * participant session creation to detect a repeat participant from the same
+ * source. We only ever store/compare the one-way hash (see lib/request-ip.ts),
+ * never the raw IP.
+ *
+ * Scoped to human chats (`partnerAgentId IS NULL`) on purpose: agent/partner
+ * sessions originate from a partner's server IP, so without this scope an
+ * agent or e2e-test run from some IP could trip a human's seen-before check.
+ * Scoping (rather than hashing humans/agents differently) keeps the hash a
+ * pure function of IP, so the historical hashes backfilled in 0020 stay
+ * comparable — we can't re-derive scoped hashes since the raw IPs are gone.
+ *
+ * Returns false for a null hash (no IP available → can't be a known repeat).
+ */
+export async function hasChatWithStartIpHash({
+  startIpHash,
+}: {
+  startIpHash: string | null;
+}): Promise<boolean> {
+  if (!startIpHash) {
+    return false;
+  }
+  try {
+    const [row] = await db
+      .select({ n: count() })
+      .from(chat)
+      .where(
+        and(eq(chat.startIpHash, startIpHash), isNull(chat.partnerAgentId))
+      );
+    return (row?.n ?? 0) > 0;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to check start IP hash"
+    );
   }
 }
 
@@ -738,7 +778,7 @@ export async function createAgentChatAndSession({
   condition,
   conditionLabel,
   partnerModel,
-  startIp,
+  startIpHash,
 }: {
   chatId: string;
   partnerAgentId: string | null;
@@ -751,7 +791,7 @@ export async function createAgentChatAndSession({
   condition?: string | null;
   conditionLabel?: string | null;
   partnerModel?: string | null;
-  startIp?: string | null;
+  startIpHash?: string | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession }> {
   try {
     return await db.transaction(async (tx) => {
@@ -765,7 +805,7 @@ export async function createAgentChatAndSession({
           visibility: "private",
           partnerAgentId,
           participantId,
-          startIp: startIp ?? null,
+          startIpHash: startIpHash ?? null,
         })
         .returning();
 

@@ -38,7 +38,7 @@ export async function createInterviewSession({
   title,
   instructions,
   partnerModel,
-  startIp,
+  startIpHash,
 }: {
   chatId: string;
   partnerAgentId: string | null;
@@ -48,7 +48,7 @@ export async function createInterviewSession({
   title: string;
   instructions?: string | null;
   partnerModel?: string | null;
-  startIp?: string | null;
+  startIpHash?: string | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession; participantId: string }> {
   const participant = await upsertParticipant({
     partnerAgentId,
@@ -70,7 +70,7 @@ export async function createInterviewSession({
     condition,
     conditionLabel: labelForCondition(condition),
     partnerModel: partnerModel ?? null,
-    startIp: startIp ?? null,
+    startIpHash: startIpHash ?? null,
   });
 
   return { chat, agentSession, participantId: participant.id };
@@ -99,13 +99,13 @@ export async function executeTurn({
   text,
   userMessageId,
   partnerModel,
-  ipAddress,
+  ipHash,
 }: {
   chatId: string;
   text: string;
   userMessageId?: string;
   partnerModel?: string | null;
-  ipAddress?: string | null;
+  ipHash?: string | null;
 }): Promise<ExecuteTurnSuccess | ExecuteTurnError> {
   const session = await getAgentSessionByChatId({ chatId });
   if (!session) {
@@ -130,7 +130,7 @@ export async function executeTurn({
         attachments: [],
         createdAt: new Date(),
         partnerModel: effectivePartnerModel,
-        ipAddress: ipAddress ?? null,
+        ipHash: ipHash ?? null,
       },
     ],
   });
@@ -173,7 +173,7 @@ export async function executeTurn({
         attachments: [],
         createdAt: new Date(),
         partnerModel: null,
-        ipAddress: null,
+        ipHash: null,
       },
     ],
   });

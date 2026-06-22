@@ -22,7 +22,7 @@ type ChatMessage = {
   text: string;
 };
 
-type Session = { chatId: string; condition: string };
+type Session = { chatId: string };
 
 const INTERVIEW_START_PROMPT =
   "Please start the interview by greeting the candidate and asking the first question.";
@@ -37,7 +37,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export function ChatClient({ invitationToken }: { invitationToken: string }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [model, setModel] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -110,7 +109,6 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         }
         const body = (await res.json()) as {
           assistantMessage: { id: string; text: string };
-          model?: string | null;
         };
         setMessages((prev) => [
           ...prev,
@@ -120,9 +118,6 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
             text: body.assistantMessage.text,
           },
         ]);
-        if (body.model) {
-          setModel(body.model);
-        }
       } catch (_) {
         setError("Network error. Please try again.");
       } finally {
@@ -196,19 +191,10 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
 
   return (
     <div className="flex h-svh flex-col bg-background">
-      <div className="border-yellow-400/60 border-y bg-yellow-100 px-4 py-1.5 text-center font-medium text-[11px] text-yellow-900 uppercase tracking-wide dark:bg-yellow-950/60 dark:text-yellow-200">
-        Internal testing only — debug header below will be removed before
-        launch
-      </div>
       <header className="border-b px-6 py-3">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="font-medium text-sm">DEMO Lab Interview</h1>
-            <p className="truncate text-muted-foreground text-xs">
-              Session {session.chatId.slice(0, 8)} · Condition{" "}
-              <span className="font-mono">{session.condition}</span> · Model{" "}
-              <span className="font-mono">{model ?? "—"}</span>
-            </p>
+            <h1 className="font-medium text-sm">Lab Interview</h1>
           </div>
           <Button
             disabled={pending || ended}
@@ -220,8 +206,9 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
           </Button>
         </div>
         <p className="mx-auto mt-2 w-full max-w-3xl text-[11px] text-muted-foreground">
-          Your responses, the timestamps of each turn, and the IP address you
-          connect from are recorded for research purposes.
+          Your responses and the timestamps of each turn are recorded for
+          research purposes. We do not store the IP address you connect from —
+          only a one-way hash of it, which cannot be turned back into your IP.
         </p>
       </header>
 
