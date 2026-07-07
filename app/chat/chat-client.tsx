@@ -205,7 +205,7 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
             <h1 className="font-medium text-sm">Lab Interview</h1>
             {session.conditionLabel ? (
               <span className="mt-1 inline-block rounded border border-amber-500/40 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-wide">
-                Unblinded · {session.condition} — {session.conditionLabel}
+                Unblinded · {session.condition} - {session.conditionLabel}
               </span>
             ) : null}
           </div>
@@ -220,7 +220,7 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         </div>
         <p className="mx-auto mt-2 w-full max-w-3xl text-[11px] text-muted-foreground">
           Your responses and the timestamps of each turn are recorded for
-          research purposes. We do not store the IP address you connect from —
+          research purposes. We do not store the IP address you connect from:
           only a one-way hash of it, which cannot be turned back into your IP.
         </p>
       </header>

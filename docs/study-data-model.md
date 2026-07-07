@@ -1,6 +1,6 @@
 # Study data model spec
 
-The study captures interview sessions across two independent axes — **per-participant** and **per-agent** — plus enough session-level metadata to know which prompt produced the transcript and roughly how much it cost. The transcript itself is the primary artifact; we deliberately don't record per-turn telemetry. This doc is the source of truth for what we store and why; `lib/db/schema.ts` is the implementation.
+The study captures interview sessions across two independent axes (**per-participant** and **per-agent**) plus enough session-level metadata to know which prompt produced the transcript and roughly how much it cost. The transcript itself is the primary artifact; we deliberately don't record per-turn telemetry. This doc is the source of truth for what we store and why; `lib/db/schema.ts` is the implementation.
 
 This supersedes the earlier "drop participant tracking" plan.
 
@@ -33,7 +33,7 @@ One row per interviewee enrolled by a partner agent.
 | `metadata` | jsonb nullable | Free-form: demographics, consent, recruitment source, anything the partner sends. Merged on upsert. |
 | `createdAt` | timestamp | First time we saw this participant. |
 
-Unique index on `(partnerAgentId, externalId)`. The same human reached via a different partner would be a separate row — we do not attempt to dedupe across partners.
+Unique index on `(partnerAgentId, externalId)`. The same human reached via a different partner would be a separate row; we do not attempt to dedupe across partners.
 
 ### `Chat`
 Already exists; carries study attribution.
@@ -50,7 +50,7 @@ One row per agent-driven session, 1:1 with `Chat` (via `chatId` unique).
 |---|---|---|
 | `id` | uuid PK | |
 | `chatId` | uuid unique FK → `Chat` | |
-| `userId` | uuid FK → `User` | Mirrors `Chat.userId` — the synthetic participant user. |
+| `userId` | uuid FK → `User` | Mirrors `Chat.userId`, the synthetic participant user. |
 | `partnerAgentId` | uuid FK → `PartnerAgent` | Mirror for join convenience. |
 | `participantId` | uuid FK → `Participant` | Mirror for join convenience. |
 | `responseId` | text nullable | Most recent OpenAI Responses-API id; used as `previous_response_id` next turn. |
@@ -83,7 +83,7 @@ One row per minted invitation token. Each token is a one-shot capability that pi
 Tokens are minted via `pnpm db:create-invitations --count N --batch <label>`. Redemption is via `POST /sessions { invitationToken }`; the route does an atomic `UPDATE … WHERE redeemedAt IS NULL RETURNING condition`, so concurrent redeems return `409 already_redeemed` to all but one.
 
 ### `Message_v2`
-Already exists; transcript rows. **This is the study's primary artifact** — every question and answer is here, keyed by `chatId` and ordered by `createdAt`. No schema change.
+Already exists; transcript rows. **This is the study's primary artifact**: every question and answer is here, keyed by `chatId` and ordered by `createdAt`. No schema change.
 
 ## What we deliberately don't store
 
@@ -138,19 +138,19 @@ Body schema (POST):
   instructions?: string,
   participantExternalId: string,           // required
   participantMetadata?: Record<string, unknown>,
-  invitationToken?: string,                // optional — pins condition if provided
-  partnerModel?: string,                   // recommended — interviewee model id
+  invitationToken?: string,                // optional, pins condition if provided
+  partnerModel?: string,                   // recommended, interviewee model id
 }
 ```
 Steps:
 1. `requireAgentAuth`.
-2. `checkPartnerSessionRateLimit(partnerAgentId)` — Redis-backed counter, 50 sessions/hour/partner in production. Skipped in dev/test.
+2. `checkPartnerSessionRateLimit(partnerAgentId)`: Redis-backed counter, 50 sessions/hour/partner in production. Skipped in dev/test.
 3. (if token provided) `verifyInvitation(invitationToken)` → JWT claims (`{ jti, condition, exp }`); look up the row, fail if expired/missing. Token-level idempotency: same `(jti, externalId)` already redeemed → return that `chatId` + `condition` with `idempotent: true`.
 4. `upsertParticipant({ partnerAgentId, externalId, metadata })`.
-5. `getActiveAgentSessionForParticipant({ participantId })` — participant-level idempotency. If there's a non-completed session, return it with `idempotent: true, reason: "participant_has_active_session"` and *do not* burn the token. Caller must `/complete` the prior session before starting a new one.
+5. `getActiveAgentSessionForParticipant({ participantId })`: participant-level idempotency. If there's a non-completed session, return it with `idempotent: true, reason: "participant_has_active_session"` and *do not* burn the token. Caller must `/complete` the prior session before starting a new one.
 6. Resolve the condition:
    - If a token was provided: `redeemInvitation({ jti, chatId, externalId })` → atomic UPDATE with `redeemedAt IS NULL` guard. The condition comes from the token row.
-   - If no token: `pickRandomCondition()` — uniform random across `ALL_CONDITIONS`.
+   - If no token: `pickRandomCondition()`, uniform random across `ALL_CONDITIONS`.
 7. `promptForCondition(condition)` → `(promptId, promptVersion)` for the OpenAI Stored Prompt bound to that condition.
 8. `createAgentChatAndSession({ chatId, partnerAgentId, participantId, userId: participant.userId, title, instructions, promptId, promptVersion, condition, partnerModel })`.
 
@@ -248,6 +248,6 @@ ORDER BY "createdAt";
 ## What stays the same
 
 - Per-agent API keys and `requireAgentAuth` (`PartnerAgent` table, sha256+pepper auth, `lastUsedAt`, `revokedAt`).
-- The four route paths and their request shapes (additions only — no breaking field renames).
-- The web chat UI flow — unchanged. Web chats have null `partnerAgentId` / `participantId`; partner chats have both.
+- The four route paths and their request shapes (additions only, no breaking field renames).
+- The web chat UI flow: unchanged. Web chats have null `partnerAgentId` / `participantId`; partner chats have both.
 - `APP_PEPPER` env var.

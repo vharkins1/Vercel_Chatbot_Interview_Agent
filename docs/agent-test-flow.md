@@ -23,11 +23,11 @@ Pick `SUBJECT` once at the start. Reuse it in every call below so the participan
 
 All requests use `Content-Type: application/json`. Authenticated requests use `Authorization: Bearer $KEY`.
 
-**Use `curl` via Bash for every request in this flow.** Do not use `WebFetch` — it cannot send JSON bodies and will silently downgrade to GET, which all of these endpoints reject (405).
+**Use `curl` via Bash for every request in this flow.** Do not use `WebFetch`: it cannot send JSON bodies and will silently downgrade to GET, which all of these endpoints reject (405).
 
 ---
 
-## Step 1 — Self-issue a bearer key
+## Step 1: Self-issue a bearer key
 
 ```http
 POST {{BASE}}/api/agent/v1/keys
@@ -42,7 +42,7 @@ Content-Type: application/json
 { "apiKey": "<base64url-string>", "partnerName": "test-<16hex>" }
 ```
 
-**Capture `apiKey` as `$KEY`. It is shown only once.** If you lose it, call this endpoint again to mint a new one — there is no recovery endpoint.
+**Capture `apiKey` as `$KEY`. It is shown only once.** If you lose it, call this endpoint again to mint a new one; there is no recovery endpoint.
 
 **Verifications:**
 
@@ -57,9 +57,9 @@ Content-Type: application/json
 
 ---
 
-## Step 2 — Create a session
+## Step 2: Create a session
 
-The `invitationToken` field (`$INVITE`) is **optional**. If you don't pass one, the server randomly assigns a condition itself (uniform across positive/neutral/negative) — fine for the smoke test. Pass one only when the operator has minted a token via `pnpm db:create-invitations --count 1 --batch agent-test` and wants you to consume it (it will be single-use; reuse returns 409).
+The `invitationToken` field (`$INVITE`) is **optional**. If you don't pass one, the server randomly assigns a condition itself (uniform across positive/neutral/negative), fine for the smoke test. Pass one only when the operator has minted a token via `pnpm db:create-invitations --count 1 --batch agent-test` and wants you to consume it (it will be single-use; reuse returns 409).
 
 ```http
 POST {{BASE}}/api/agent/v1/sessions
@@ -93,7 +93,7 @@ Content-Type: application/json
 
 ---
 
-## Step 3 — Run the interview to completion
+## Step 3: Run the interview to completion
 
 The interview consists of **5 topics × 3 questions = 15 question turns**, plus the model's own greeting/feedback turns. Send each user message via:
 
@@ -142,7 +142,7 @@ Note: questions are randomly selected per session, so you cannot pre-predict whi
 
 ---
 
-## Step 4 — Complete the session
+## Step 4: Complete the session
 
 ```http
 POST {{BASE}}/api/agent/v1/sessions/{{CHAT_ID}}/complete
@@ -157,7 +157,7 @@ Authorization: Bearer {{KEY}}
 
 ---
 
-## Step 5 — Fetch the transcript
+## Step 5: Fetch the transcript
 
 ```http
 GET {{BASE}}/api/agent/v1/sessions/{{CHAT_ID}}
@@ -174,7 +174,7 @@ Authorization: Bearer {{KEY}}
 
 ---
 
-## Step 6 — Auth boundary check
+## Step 6: Auth boundary check
 
 Repeat **step 5** with one of these wrong tokens, one at a time:
 
@@ -186,7 +186,7 @@ Repeat **step 5** with one of these wrong tokens, one at a time:
 
 ---
 
-## Step 7 — Report back
+## Step 7: Report back
 
 Produce a short structured report. Suggested format:
 
@@ -240,9 +240,9 @@ Keep the report under ~600 words. The full transcript is available via step 5 if
 
 ## If something fails
 
-Capture the failing request/response pair (URL, status, body) and include it in the anomalies section of your report. Do not retry the same call more than 2 times — repeated failures should be reported, not papered over.
+Capture the failing request/response pair (URL, status, body) and include it in the anomalies section of your report. Do not retry the same call more than 2 times; repeated failures should be reported, not papered over.
 
-If the very first call (step 1) returns `503 agent_api_disabled`, the deployment is missing the `APP_PEPPER` environment variable. Stop and report that — no further steps will work.
+If the very first call (step 1) returns `503 agent_api_disabled`, the deployment is missing the `APP_PEPPER` environment variable. Stop and report that: no further steps will work.
 
 If step 2 returns `401`, the key from step 1 wasn't accepted. Re-mint and retry once; if it still fails, report.
 

@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { Streamdown } from "streamdown";
 
 export const metadata: Metadata = {
-  title: "Agent API — Interview Chatbot",
+  title: "Agent API: Interview Chatbot",
   description:
     "How autonomous agents authenticate and exchange turns with the interview chatbot.",
 };

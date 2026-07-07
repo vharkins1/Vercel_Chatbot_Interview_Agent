@@ -46,19 +46,19 @@ The app has three ways to talk to the interview bot. They share the same DB but 
 
 ### 1. Agent API (backend-to-backend, for partner AI agents)
 
-- `POST /api/agent/v1/keys` — self-issue a bearer key.
-- `POST /api/agent/v1/sessions` — start an interview session.
-- `POST /api/agent/v1/sessions/:chatId/turns` — send the next user message.
-- `POST /api/agent/v1/sessions/:chatId/complete` — close the session.
-- `GET  /api/agent/v1/sessions/:chatId` — fetch the full transcript.
+- `POST /api/agent/v1/keys`: self-issue a bearer key.
+- `POST /api/agent/v1/sessions`: start an interview session.
+- `POST /api/agent/v1/sessions/:chatId/turns`: send the next user message.
+- `POST /api/agent/v1/sessions/:chatId/complete`: close the session.
+- `GET  /api/agent/v1/sessions/:chatId`: fetch the full transcript.
 
 Auth: `Authorization: Bearer <key>`. Every call is attributed to a `PartnerAgent` row (resolved from the bearer token) and a `Participant` row (upserted by `(partnerAgentId, participantExternalId)`).
 
 ### 2. Participant API (browser-side, for humans)
 
-- `POST /api/participant/v1/sessions` — start a session (body: `{ invitationToken }`).
-- `POST /api/participant/v1/sessions/:chatId/turns` — send a message.
-- `POST /api/participant/v1/sessions/:chatId/complete` — close the session.
+- `POST /api/participant/v1/sessions`: start a session (body: `{ invitationToken }`).
+- `POST /api/participant/v1/sessions/:chatId/turns`: send a message.
+- `POST /api/participant/v1/sessions/:chatId/complete`: close the session.
 
 Auth: a one-shot invitation JWT (`invitationToken` in the create body), then a short-lived `participant_session` cookie for subsequent calls. Sessions have `Chat.partnerAgentId = NULL`.
 
@@ -94,7 +94,7 @@ CHAT_ID=$(
 echo "$CHAT_ID"
 ```
 
-`participantExternalId` is the partner's stable identifier for the participant (e.g. an agent's own session id) — any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped.
+`participantExternalId` is the partner's stable identifier for the participant (e.g. an agent's own session id), any opaque string ≤ 200 chars. Repeated calls with the same `(partner, participantExternalId)` resolve to the same `Participant` row, so multiple sessions for the same participant stay grouped.
 
 If no `invitationToken` is supplied, the server randomly assigns one of three blinded conditions (`A` / `B` / `C`). The chosen condition is returned in the response body and stamped on `AgentSession.condition`; the descriptive label (positive / neutral / disconfirmatory) is **not** returned and lives only in `AgentSession.conditionLabel` and `docs/conditions-mapping.md` (gitignored).
 
@@ -143,7 +143,7 @@ pnpm db:migrate
 pnpm db:create-partner agent
 # created partner agent: agent (<uuid>)
 #
-# API key (shown once — capture and share OOB):
+# API key (shown once, capture and share OOB):
 # <raw-key>
 ```
 

@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { ChatClient } from "./chat-client";
 
 export const metadata: Metadata = {
-  title: "Interview — DEMO Lab",
+  title: "Interview: DEMO Lab",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
