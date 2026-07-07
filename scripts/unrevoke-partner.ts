@@ -13,7 +13,12 @@ async function main() {
     process.exit(1);
   }
 
-  const sql = postgres(process.env.POSTGRES_URL!);
+  const url = process.env.POSTGRES_URL;
+  if (!url) {
+    console.error("POSTGRES_URL is not set");
+    process.exit(1);
+  }
+  const sql = postgres(url);
   const db = drizzle(sql);
   try {
     const [row] = await db

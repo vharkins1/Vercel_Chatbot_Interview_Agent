@@ -40,7 +40,7 @@ pnpm db:rotate-partner / db:unrevoke-partner / db:list-partners
 pnpm db:create-invitations             # generate invitation JWTs pinned to a condition
 pnpm db:create-session-view            # SessionOverview view (already in prod)
 pnpm db:create-session-transcript-view # SessionTranscript view (NOT yet run in prod — see goal.md)
-pnpm db:export-sessions / db:export-messages
+pnpm db:export-sessions / db:export-transcripts / db:export-masterfile
 pnpm db:audit / db:wipe-chat-data
 ```
 
@@ -51,7 +51,7 @@ End-to-end agent smoke test: `tsx scripts/e2e-agent-test.ts` (talks to `AGENT_AP
 ## Architecture
 
 ### Three interviewer conditions (blinded as A/B/C)
-`lib/study/conditions.ts` defines the study's three conditions as `A | B | C`. The real labels (`positive` / `neutral` / `disconfirmatory`) live **only** in `CONDITION_LABEL` in that file and in the DB `conditionLabel` columns; the rest of the stack uses A/B/C so logs, API responses, env var names, and UI text stay blinded. The full mapping is documented in `docs/conditions-mapping.md` (gitignored — do not commit and do not paste into chats or PRs).
+`lib/study/conditions.ts` defines the study's three conditions as `A | B | C`. The real labels (`positive` / `neutral` / `disconfirmatory`) live **only** in `CONDITION_LABEL` in that file and in the DB `conditionLabel` columns; the rest of the stack uses A/B/C so logs, API responses, env var names, and UI text stay blinded. One deliberate exception: with `UNBLIND_FRONTEND=1` (staff/testing only — must be unset before real participants; it's on the pre-launch checklist) the participant session-creation response includes `condition`/`conditionLabel` and the chat UI shows an "Unblinded" badge. The full mapping is documented in `docs/conditions-mapping.md` (gitignored — do not commit and do not paste into chats or PRs).
 
 Each condition is a pointer to an OpenAI Stored Prompt via env vars `OPENAI_A_PROMPT_ID` / `OPENAI_B_PROMPT_ID` / `OPENAI_C_PROMPT_ID` (+ optional `_VERSION`).
 
@@ -106,7 +106,7 @@ When data could plausibly be queried with SQL, prefer dedicated columns over stu
 - `transcripts/<date>_<condition>_<chatId>.csv` — same content as columns: `turn, timestamp, role, speaker, text, partner_model`.
 - `transcripts/trends.md` — qualitative analysis grouping sessions into behavioral patterns (responsive vs. scripted-loop interviewees, etc.) with relevant transcripts embedded inline.
 
-Generated via `pnpm db:export-sessions` / `pnpm db:export-messages` (see `scripts/export-transcripts.ts`).
+Generated via `pnpm db:export-sessions` / `pnpm db:export-transcripts` (see `scripts/export-transcripts.ts`).
 
 **Historical gotcha on the existing batch:** the first 12 exported sessions pre-date condition assignment being wired into the schema, so their `condition` is `NULL` and they render as `?` in the index. Only the last 4 (rows 13–16) are properly A/B/C-labeled. Many sessions from the `e2e-test-runner` partner are scripted-loop test traffic (the interviewee cycles through ~7 prewritten lines regardless of question) — filter those out before drawing study conclusions.
 
@@ -118,5 +118,4 @@ Minimum to run the agent API locally (full list in `.env.example`):
 - `APP_PEPPER` — required, gates the entire agent API
 - `STUDY_OPENAI_API_KEY` — required for turns (named to avoid clashing with a globally-exported `OPENAI_API_KEY`)
 - `OPENAI_A_PROMPT_ID` / `OPENAI_B_PROMPT_ID` / `OPENAI_C_PROMPT_ID` (+ optional `_VERSION` each) — one per blinded condition. See `docs/conditions-mapping.md` for which letter maps to which study arm
-- `AI_GATEWAY_API_KEY` — only needed off-Vercel; on Vercel, OIDC handles it
 - `INVITE_JWT_SECRET` — needed if you generate/verify invitation tokens

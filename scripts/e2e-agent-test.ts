@@ -2,7 +2,9 @@ const BASE =
   process.env.AGENT_API_BASE ??
   "https://vercel-chatbot-interview-agent-git-main-vharkins1s-projects.vercel.app";
 const KEY = process.env.AGENT_API_KEY;
-if (!KEY) throw new Error("AGENT_API_KEY env var required");
+if (!KEY) {
+  throw new Error("AGENT_API_KEY env var required");
+}
 // Tokens are now optional: if INVITATION_TOKEN is unset, the server will
 // randomize the condition itself.
 const INVITATION_TOKEN = process.env.INVITATION_TOKEN;

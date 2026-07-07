@@ -41,7 +41,9 @@ function pickRandomCondition(): Condition {
 
 export async function POST(request: Request) {
   const auth = await requireAgentAuth(request);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return auth.response;
+  }
 
   // Error boundary: without this, any throw below (missing OPENAI_*_PROMPT_ID,
   // unseeded question bank, DB failure) escapes the route handler and Next.js

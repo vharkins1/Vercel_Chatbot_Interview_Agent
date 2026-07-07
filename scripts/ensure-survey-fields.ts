@@ -70,7 +70,9 @@ async function main() {
     `/API/v3/survey-definitions/${SID}/flow`
   );
   if (got.status !== 200) {
-    throw new Error(`GET flow failed: ${got.status} ${JSON.stringify(got.json)}`);
+    throw new Error(
+      `GET flow failed: ${got.status} ${JSON.stringify(got.json)}`
+    );
   }
 
   const ed = got.json.result.Flow.find((f) => f.Type === "EmbeddedData");
@@ -81,7 +83,9 @@ async function main() {
   }
 
   const existing = new Set((ed.EmbeddedData ?? []).map((f) => f.Field));
-  console.log(`EmbeddedData element ${ed.FlowID} currently declares: ${[...existing].join(", ") || "(none)"}`);
+  console.log(
+    `EmbeddedData element ${ed.FlowID} currently declares: ${[...existing].join(", ") || "(none)"}`
+  );
 
   // Clone the shape of an existing entry (e.g. completion_code) so the new
   // fields match exactly what Qualtrics already accepts via response import.
@@ -117,7 +121,9 @@ async function main() {
     updatedElement
   );
   if (put.status !== 200) {
-    throw new Error(`PUT flow element failed: ${put.status} ${JSON.stringify(put.json)}`);
+    throw new Error(
+      `PUT flow element failed: ${put.status} ${JSON.stringify(put.json)}`
+    );
   }
 
   // Verify it stuck.
@@ -131,7 +137,9 @@ async function main() {
   if (stillMissing.length > 0) {
     throw new Error(`After update, still missing: ${stillMissing.join(", ")}`);
   }
-  console.log(`✓ Declared. Element ${ed.FlowID} now has: ${[...now].join(", ")}`);
+  console.log(
+    `✓ Declared. Element ${ed.FlowID} now has: ${[...now].join(", ")}`
+  );
 }
 
 main().catch((e) => {

@@ -25,7 +25,9 @@ LEFT JOIN "PartnerAgent" pa ON pa.id = s."partnerAgentId";
 
 async function main() {
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
 
   const sql = postgres(url);
   try {

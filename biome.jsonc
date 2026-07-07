@@ -13,10 +13,8 @@
     "includes": [
       "**/*",
       "!components/ai-elements",
-      "!components/elements",
       "!components/ui",
-      "!lib/utils.ts",
-      "!hooks/use-mobile.ts"
+      "!lib/utils.ts"
     ]
   },
   "linter": {
@@ -33,7 +31,6 @@
         "useConsistentTypeDefinitions": "off"
       },
       "nursery": {
-        "noUnnecessaryConditions": "off",
         "useSortedClasses": "off"
       },
       "complexity": {

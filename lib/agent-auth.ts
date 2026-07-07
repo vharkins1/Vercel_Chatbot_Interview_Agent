@@ -54,7 +54,9 @@ export async function requireAgentAuth(
   }
 
   // best-effort audit signal; don't await or fail the request on update errors
-  void touchPartnerAgentLastUsed(partner.id);
+  touchPartnerAgentLastUsed(partner.id).catch(() => {
+    // ignore audit-update failures
+  });
 
   return { ok: true, partnerAgentId: partner.id, partnerName: partner.name };
 }

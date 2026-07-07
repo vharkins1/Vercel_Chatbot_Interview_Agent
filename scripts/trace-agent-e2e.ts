@@ -150,7 +150,8 @@ async function qualtricsGetResponse(
   return { values: json.result?.values ?? {} };
 }
 
-// Mirrors lib/qualtrics/client.ts `deleteResponse`.
+// Inline Qualtrics response DELETE (this script is standalone; it does not
+// import lib/qualtrics/client.ts).
 async function qualtricsDeleteResponse(responseId: string): Promise<number> {
   const res = await fetch(
     `https://${QUALTRICS_DC}.qualtrics.com/API/v3/surveys/${SURVEY_ID}/responses/${responseId}`,

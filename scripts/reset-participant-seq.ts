@@ -41,9 +41,7 @@ async function main() {
     } else {
       console.log(`Removing ${targets.length} numbered test session(s):`);
       for (const t of targets) {
-        console.log(
-          `  #${t.seq}  ${t.chatId}  model=${t.partnerModel ?? "—"}`
-        );
+        console.log(`  #${t.seq}  ${t.chatId}  model=${t.partnerModel ?? "—"}`);
       }
     }
 

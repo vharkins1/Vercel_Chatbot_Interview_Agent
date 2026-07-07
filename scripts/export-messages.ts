@@ -4,17 +4,25 @@ import postgres from "postgres";
 config({ path: ".env.local" });
 
 function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) {
+    return "";
+  }
   const str = value instanceof Date ? value.toISOString() : String(value);
-  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
   return str;
 }
 
 function extractText(parts: unknown): string {
-  if (!Array.isArray(parts)) return "";
+  if (!Array.isArray(parts)) {
+    return "";
+  }
   const out: string[] = [];
-  for (const p of parts as Array<Record<string, unknown>>) {
-    if (!p || typeof p !== "object") continue;
+  for (const p of parts as Record<string, unknown>[]) {
+    if (!p || typeof p !== "object") {
+      continue;
+    }
     const type = String(p.type ?? "");
     if (type === "text" && typeof p.text === "string") {
       out.push(p.text);
@@ -35,7 +43,9 @@ function extractText(parts: unknown): string {
 
 async function main() {
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
 
   const sql = postgres(url);
   try {
@@ -60,7 +70,7 @@ async function main() {
       "parts_json",
     ];
     process.stdout.write(`${headers.join(",")}\n`);
-    for (const r of rows as Array<Record<string, unknown>>) {
+    for (const r of rows as Record<string, unknown>[]) {
       const line = [
         csvEscape(r.chat_id),
         csvEscape(r.chat_title),

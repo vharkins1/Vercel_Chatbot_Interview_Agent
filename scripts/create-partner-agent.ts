@@ -21,8 +21,12 @@ async function main() {
   }
 
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
-  if (!process.env.APP_PEPPER) throw new Error("APP_PEPPER is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
+  if (!process.env.APP_PEPPER) {
+    throw new Error("APP_PEPPER is required");
+  }
 
   const rawKey = randomBytes(32).toString("base64url");
   const keyHash = hashApiKey(rawKey);

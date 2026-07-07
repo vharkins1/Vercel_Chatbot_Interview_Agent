@@ -8,17 +8,25 @@ config({ path: ".env.local" });
 const OUT_DIR = process.env.TRANSCRIPTS_OUT ?? "transcripts";
 
 function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) {
+    return "";
+  }
   const str = value instanceof Date ? value.toISOString() : String(value);
-  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
   return str;
 }
 
 function extractText(parts: unknown): string {
-  if (!Array.isArray(parts)) return "";
+  if (!Array.isArray(parts)) {
+    return "";
+  }
   const out: string[] = [];
-  for (const p of parts as Array<Record<string, unknown>>) {
-    if (!p || typeof p !== "object") continue;
+  for (const p of parts as Record<string, unknown>[]) {
+    if (!p || typeof p !== "object") {
+      continue;
+    }
     const type = String(p.type ?? "");
     if (type === "text" && typeof p.text === "string") {
       out.push(p.text);
@@ -38,7 +46,9 @@ function safeSlug(value: string): string {
 }
 
 function fmtDate(d: Date | null | undefined): string {
-  if (!d) return "";
+  if (!d) {
+    return "";
+  }
   return d.toISOString().replace("T", " ").replace(/\..*/, "Z");
 }
 
@@ -69,7 +79,9 @@ type MsgRow = {
 
 async function main() {
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
 
   mkdirSync(OUT_DIR, { recursive: true });
 
@@ -132,7 +144,9 @@ async function main() {
       `) as unknown as MsgRow[];
 
       const isAgentSession = c.partner_agent_id !== null;
-      const intervieweeLabel = isAgentSession ? "Interviewee Agent" : "Participant";
+      const intervieweeLabel = isAgentSession
+        ? "Interviewee Agent"
+        : "Participant";
       const source = isAgentSession ? "Agent" : "Human";
       const partnerOrParticipant = isAgentSession
         ? `${c.partner_name ?? "?"} / ${c.participant_external_id ?? "?"}`
@@ -198,7 +212,9 @@ async function main() {
       md.push(`| Total tokens | ${c.total_tokens ?? "—"} |`);
       md.push(`| Interviewer model | ${c.interviewer_model ?? "—"} |`);
       md.push(`| Interviewee model | ${c.partner_model ?? "—"} |`);
-      md.push(`| Prompt | ${c.prompt_id ?? "—"} (v${c.prompt_version ?? "—"}) |`);
+      md.push(
+        `| Prompt | ${c.prompt_id ?? "—"} (v${c.prompt_version ?? "—"}) |`
+      );
       if (isAgentSession) {
         md.push(`| Partner agent | ${c.partner_name ?? "—"} |`);
         md.push(

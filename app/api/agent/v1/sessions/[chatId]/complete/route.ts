@@ -80,7 +80,7 @@ export async function POST(
   }
 
   const result = await completeInterviewSession({ chatId });
-  if (!result || !result.agentSession) {
+  if (!result?.agentSession) {
     return Response.json({ error: "no_agent_session" }, { status: 404 });
   }
 

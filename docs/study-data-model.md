@@ -7,7 +7,7 @@ This supersedes the earlier "drop participant tracking" plan.
 ## Entities
 
 ### `User`
-Already exists. Backs both human web users and synthetic per-participant users. Synthetic users have `isAnonymous = true` and a `participant-<uuid>@partner.invalid` email so the existing FKs (chat ownership, documents, suggestions) work without special-casing.
+Already exists. Backs both human web users and synthetic per-participant users. Synthetic users have `isAnonymous = true` and a `participant-<uuid>@partner.invalid` email so the existing FKs (chat ownership) work without special-casing.
 
 ### `PartnerAgent`
 One row per partner that delivers participants. Self-issued keys (via `POST /api/agent/v1/keys`) create one row per key, named `<label>-<random>`; operator-minted keys (`pnpm db:create-partner <name>`) use the supplied name. Browser/Human sessions have no `PartnerAgent` row attached to their `Chat` (`partnerAgentId IS NULL`).

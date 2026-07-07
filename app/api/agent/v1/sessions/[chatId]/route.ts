@@ -11,7 +11,9 @@ export async function GET(
   { params }: { params: Promise<{ chatId: string }> }
 ) {
   const auth = await requireAgentAuth(request);
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return auth.response;
+  }
 
   const { chatId } = await params;
 

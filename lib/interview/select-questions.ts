@@ -125,7 +125,9 @@ export async function ensureChatQuestions(
   chatId: string
 ): Promise<SelectedQuestion[]> {
   const existing = await getChatQuestions(chatId);
-  if (existing.length > 0) return existing;
+  if (existing.length > 0) {
+    return existing;
+  }
   return selectQuestionsForChat(chatId);
 }
 

@@ -83,18 +83,18 @@ function flowBlockIds(definition: QualtricsSurveyDefinition): string[] {
 // Split a block's element list into ordered groups (one group per page) on
 // "Page Break" boundaries. Returns the QIDs that live on each page.
 function blockPages(block: QualtricsBlock): string[][] {
-  const pages: string[][] = [[]];
+  let current: string[] = [];
+  const pages: string[][] = [current];
   for (const el of block.BlockElements) {
     if (el.Type === "Page Break") {
-      pages.push([]);
+      current = [];
+      pages.push(current);
       continue;
     }
     if (
       el.Type === "Question" &&
       typeof (el as { QuestionID?: string }).QuestionID === "string"
     ) {
-      // pages always has at least one entry; never undefined here.
-      const current = pages[pages.length - 1];
       current.push((el as { QuestionID: string }).QuestionID);
     }
   }

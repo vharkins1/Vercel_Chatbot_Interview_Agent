@@ -94,7 +94,9 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
 
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
   if (!process.env.INVITE_JWT_SECRET) {
     throw new Error("INVITE_JWT_SECRET is required");
   }

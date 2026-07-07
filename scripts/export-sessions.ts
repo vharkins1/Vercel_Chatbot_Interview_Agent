@@ -4,15 +4,21 @@ import postgres from "postgres";
 config({ path: ".env.local" });
 
 function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return "";
+  if (value === null || value === undefined) {
+    return "";
+  }
   const str = value instanceof Date ? value.toISOString() : String(value);
-  if (/[",\n\r]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  if (/[",\n\r]/.test(str)) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
   return str;
 }
 
 async function main() {
   const url = process.env.POSTGRES_URL;
-  if (!url) throw new Error("POSTGRES_URL is required");
+  if (!url) {
+    throw new Error("POSTGRES_URL is required");
+  }
 
   const sql = postgres(url);
   try {
@@ -43,9 +49,15 @@ async function main() {
     for (const row of rows) {
       const line = headers.map((h) => {
         const v = (row as Record<string, unknown>)[h];
-        if (v === null || v === undefined) return "";
-        if (v instanceof Date) return csvEscape(v);
-        if (typeof v === "object") return csvEscape(JSON.stringify(v));
+        if (v === null || v === undefined) {
+          return "";
+        }
+        if (v instanceof Date) {
+          return csvEscape(v);
+        }
+        if (typeof v === "object") {
+          return csvEscape(JSON.stringify(v));
+        }
         return csvEscape(v);
       });
       process.stdout.write(`${line.join(",")}\n`);

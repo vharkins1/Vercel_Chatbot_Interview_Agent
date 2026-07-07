@@ -5,49 +5,22 @@
 </p>
 
 <p align="center">
-  <a href="https://chatbot.dev"><strong>Read Docs</strong></a> ·
   <a href="#features"><strong>Features</strong></a> ·
-  <a href="#model-providers"><strong>Model Providers</strong></a> ·
-  <a href="#deploy-your-own"><strong>Deploy Your Own</strong></a> ·
-  <a href="#running-locally"><strong>Running locally</strong></a>
+  <a href="#running-locally"><strong>Running locally</strong></a> ·
+  <a href="#three-entry-points"><strong>Entry points</strong></a>
 </p>
 <br/>
 
 ## Features
 
 - [Next.js](https://nextjs.org) App Router
-  - Advanced routing for seamless navigation and performance
-  - React Server Components (RSCs) and Server Actions for server-side rendering and increased performance
-- [AI SDK](https://ai-sdk.dev/docs/introduction)
-  - Unified API for generating text, structured objects, and tool calls with LLMs
-  - Hooks for building dynamic chat and generative user interfaces
-  - Supports OpenAI, Anthropic, Google, xAI, and other model providers via AI Gateway
-- [shadcn/ui](https://ui.shadcn.com)
-  - Styling with [Tailwind CSS](https://tailwindcss.com)
-  - Component primitives from [Radix UI](https://radix-ui.com) for accessibility and flexibility
-- Data Persistence
-  - [Neon Serverless Postgres](https://vercel.com/marketplace/neon) for saving chat history and user data
-  - [Vercel Blob](https://vercel.com/storage/blob) for efficient file storage
-- [Auth.js](https://authjs.dev)
-  - Simple and secure authentication
-
-## Model Providers
-
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. Models are configured in `lib/ai/models.ts` with per-model provider routing. Included models: Mistral, Moonshot, DeepSeek, OpenAI, and xAI.
-
-### AI Gateway Authentication
-
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
-
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
-
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
-
-## Deploy Your Own
-
-You can deploy your own version of Chatbot to Vercel with one click:
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/templates/next.js/chatbot)
+  - React Server Components (RSCs) and Server Actions for server-side rendering
+- OpenAI Responses API interviewer
+  - Each blinded condition points to an OpenAI Stored Prompt; the prompt id + version are pinned per session so mid-study prompt edits don't invalidate prior trials
+  - Conversation continuity is kept server-side via the previous OpenAI response id, so callers never replay history
+- Styling with [Tailwind CSS](https://tailwindcss.com) and a small set of [Radix UI](https://radix-ui.com) primitives for accessibility
+- Data persistence in Postgres via [Drizzle ORM](https://orm.drizzle.team) (chats, messages, agent sessions, participants, invitations, survey handoff)
+- [Auth.js](https://authjs.dev) for browser authentication; bearer-token auth for the agent API
 
 ## Running locally
 

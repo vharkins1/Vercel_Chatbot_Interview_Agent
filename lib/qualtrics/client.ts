@@ -108,11 +108,6 @@ export type QualtricsSurveyDefinition = {
   Questions: Record<string, QualtricsQuestion>;
 };
 
-export type QualtricsSurveyMeta = {
-  name: string;
-  isActive: boolean;
-};
-
 export type QualtricsResponseSubmission = {
   responseId: string;
 };
@@ -123,22 +118,6 @@ export type QualtricsResponseSubmission = {
 export type QualtricsResponse = {
   values: Record<string, unknown>;
 };
-
-export async function getSurveyMeta(
-  surveyId: string
-): Promise<QualtricsResult<QualtricsSurveyMeta>> {
-  const result = await request<{ name: string; isActive: boolean }>(
-    "GET",
-    `/API/v3/surveys/${surveyId}`
-  );
-  if (!result.ok) {
-    return result;
-  }
-  return {
-    ok: true,
-    value: { name: result.value.name, isActive: result.value.isActive },
-  };
-}
 
 export async function getSurveyDefinition(
   surveyId: string
@@ -166,16 +145,6 @@ export async function getResponse(
 ): Promise<QualtricsResult<QualtricsResponse>> {
   return await request<QualtricsResponse>(
     "GET",
-    `/API/v3/surveys/${surveyId}/responses/${responseId}`
-  );
-}
-
-export async function deleteResponse(
-  surveyId: string,
-  responseId: string
-): Promise<QualtricsResult<unknown>> {
-  return await request<unknown>(
-    "DELETE",
     `/API/v3/surveys/${surveyId}/responses/${responseId}`
   );
 }
