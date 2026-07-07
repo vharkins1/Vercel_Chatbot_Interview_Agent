@@ -22,7 +22,15 @@ type ChatMessage = {
   text: string;
 };
 
-type Session = { chatId: string };
+// The session-creation endpoint normally returns only `{ chatId }`. When the
+// server-side UNBLIND_FRONTEND flag is set (staff/testing only), it also
+// returns the blinded condition code and its descriptive label so we can show
+// a debug badge. Both are optional — absent in the blinded production path.
+type Session = {
+  chatId: string;
+  condition?: "A" | "B" | "C";
+  conditionLabel?: string;
+};
 
 const INTERVIEW_START_PROMPT =
   "Please start the interview by greeting the candidate and asking the first question.";
@@ -195,6 +203,11 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-medium text-sm">Lab Interview</h1>
+            {session.conditionLabel ? (
+              <span className="mt-1 inline-block rounded border border-amber-500/40 bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground uppercase tracking-wide">
+                Unblinded · {session.condition} — {session.conditionLabel}
+              </span>
+            ) : null}
           </div>
           <Button
             disabled={pending || ended}

@@ -12,7 +12,9 @@ export function isCondition(value: unknown): value is Condition {
 /**
  * Internal-only mapping from blinded code label (A/B/C) to the study's
  * descriptive label. Used for DB writes (AgentSession.conditionLabel) and
- * never returned through any API or shown in the UI.
+ * never returned through any API or shown in the UI — with one deliberate
+ * exception: when UNBLIND_FRONTEND=1 (staff/testing only, must be unset for
+ * real participants), the participant session-creation response includes it.
  * See docs/conditions-mapping.md (gitignored) for the rationale.
  */
 export const CONDITION_LABEL: Record<Condition, string> = {

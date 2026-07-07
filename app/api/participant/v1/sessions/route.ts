@@ -9,7 +9,11 @@ import {
   signParticipantSession,
 } from "@/lib/participant-auth";
 import { getRequestIp, hashIp } from "@/lib/request-ip";
-import { isCondition } from "@/lib/study/conditions";
+import {
+  type Condition,
+  isCondition,
+  labelForCondition,
+} from "@/lib/study/conditions";
 import { verifyInvitation } from "@/lib/study/invitations";
 import { createInterviewSession } from "@/lib/study/session-service";
 import { generateUUID } from "@/lib/utils";
@@ -126,10 +130,27 @@ export async function POST(request: Request) {
     jti: claims.jti,
   });
 
-  // Condition is intentionally NOT returned to the browser — it's the blinded
-  // study arm and must stay staff-only. It's persisted on AgentSession above and
-  // recovered server-side at analysis time via the chat_id/completion_code join.
-  return new Response(JSON.stringify({ chatId }), {
+  // Condition is intentionally NOT returned to the browser in production — it's
+  // the blinded study arm and must stay staff-only. It's persisted on
+  // AgentSession above and recovered server-side at analysis time via the
+  // chat_id/completion_code join.
+  //
+  // TEMPORARY UNBLINDING (testing only): when UNBLIND_FRONTEND === "1" we also
+  // return the A/B/C code and its descriptive label so the participant UI can
+  // surface a staff/debug badge. UNBLIND_FRONTEND MUST be UNSET in prod before
+  // real participants — see docs/goal.md pre-launch checklist. When the flag is
+  // unset the response is byte-identical to `{ chatId }`.
+  const payload: {
+    chatId: string;
+    condition?: Condition;
+    conditionLabel?: string;
+  } = { chatId };
+  if (process.env.UNBLIND_FRONTEND === "1") {
+    payload.condition = condition;
+    payload.conditionLabel = labelForCondition(condition);
+  }
+
+  return new Response(JSON.stringify(payload), {
     status: 200,
     headers: {
       "content-type": "application/json",
