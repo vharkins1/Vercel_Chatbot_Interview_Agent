@@ -142,6 +142,25 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   }
 }
 
+export async function countUserMessagesByChatId({
+  id,
+}: {
+  id: string;
+}): Promise<number> {
+  try {
+    const [row] = await db
+      .select({ n: count() })
+      .from(message)
+      .where(and(eq(message.chatId, id), eq(message.role, "user")));
+    return row?.n ?? 0;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to count user messages by chat id"
+    );
+  }
+}
+
 // ── Agent Queries ──────────────────────────────────────────────
 
 export async function getActiveAgentSessionForParticipant({

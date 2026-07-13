@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
+import { countUserMessagesByChatId } from "@/lib/db/queries";
 import {
   PARTICIPANT_COOKIE,
   verifyParticipantSession,
 } from "@/lib/participant-auth";
 import { getRequestIp, hashIp } from "@/lib/request-ip";
+import { looksLikeEnd, MAX_PARTICIPANT_TURNS } from "@/lib/study/interview-end";
 import { executeTurn } from "@/lib/study/session-service";
 
 export const maxDuration = 60;
@@ -53,6 +55,15 @@ export async function POST(
     return Response.json({ error: result.error }, { status: result.status });
   }
 
+  // The UI has no manual end control: the server decides when the interview
+  // is over, either because the interviewer's reply reads as a close or
+  // because the turn cap was hit. The client reacts by calling /complete.
+  // The count includes the hidden seed turn, matching how agent sessions
+  // count turns.
+  const userTurns = await countUserMessagesByChatId({ id: chatId });
+  const ended =
+    looksLikeEnd(result.assistantText) || userTurns >= MAX_PARTICIPANT_TURNS;
+
   return Response.json({
     assistantMessage: {
       id: result.assistantMessageId,
@@ -60,5 +71,6 @@ export async function POST(
       text: result.assistantText,
     },
     model: result.model,
+    ended,
   });
 }

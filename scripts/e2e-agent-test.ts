@@ -1,3 +1,5 @@
+import { looksLikeEnd } from "@/lib/study/interview-end";
+
 const BASE =
   process.env.AGENT_API_BASE ??
   "https://vercel-chatbot-interview-agent-git-main-vharkins1s-projects.vercel.app";
@@ -22,28 +24,6 @@ const PARTICIPANT_REPLIES = [
   "Yes, that's a fair summary. Thanks for asking these — it was a useful prompt to think about.",
   "I don't think I have anything to add. Thanks.",
 ];
-
-const END_PHRASES = [
-  "thanks for sharing",
-  "thanks for participating",
-  "this concludes",
-  "that concludes",
-  "we're done",
-  "we are done",
-  "that's all the questions",
-  "thats all the questions",
-  "no more questions",
-  "end of the interview",
-  "interview is complete",
-  "interview is over",
-  "wrap up",
-  "wrapping up",
-];
-
-function looksLikeEnd(text: string): boolean {
-  const lower = text.toLowerCase();
-  return END_PHRASES.some((p) => lower.includes(p));
-}
 
 async function discover() {
   const r = await fetch(`${BASE}/llms.txt`);

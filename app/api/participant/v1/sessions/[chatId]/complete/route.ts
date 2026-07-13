@@ -32,27 +32,42 @@ export async function POST(
     return Response.json({ error: "no_agent_session" }, { status: 404 });
   }
 
-  // Carry the participant counter + chatId onto the Qualtrics follow-up link so
-  // the human's browser-side survey can capture them as embedded data (Qualtrics
-  // auto-captures matching URL query params when the fields are declared in the
-  // Survey Flow). Mirrors the agent path, which injects the same keys at submit.
+  // Carry the study join keys onto the Qualtrics follow-up link so the
+  // human's browser-side survey captures them as embedded data (Qualtrics
+  // auto-captures matching URL query params when the fields are declared in
+  // the Survey Flow — declare completion_code, chat_id, and participant_seq
+  // there or Qualtrics silently drops them; scripts/ensure-survey-fields.ts
+  // automates the declaration). Mirrors the agent path, which injects the
+  // same three keys at submit (see app/api/agent/v1/.../survey/route.ts).
+  //
+  // TODO: swap in QUALTRICS_FOLLOWUP_URL before launch — uncomment the env
+  // line and delete the example line below it. Everything else is wired.
   const followupUrl = buildFollowupUrl({
-    base: process.env.QUALTRICS_FOLLOWUP_URL ?? null,
+    // base: process.env.QUALTRICS_FOLLOWUP_URL ?? null,
+    base: EXAMPLE_FOLLOWUP_URL,
     chatId,
     seq: result.agentSession?.seq ?? null,
+    completionCode: result.agentSession?.completionCode ?? null,
   });
 
   return Response.json({ ok: true, followupUrl });
 }
 
+// Placeholder Qualtrics link so the handoff renders end-to-end with the real
+// query-param shape before the production survey URL is dropped in.
+const EXAMPLE_FOLLOWUP_URL =
+  "https://qualtrics.example.com/jfe/form/SV_EXAMPLE";
+
 function buildFollowupUrl({
   base,
   chatId,
   seq,
+  completionCode,
 }: {
   base: string | null;
   chatId: string;
   seq: number | null;
+  completionCode: string | null;
 }): string | null {
   if (!base) {
     return null;
@@ -62,6 +77,9 @@ function buildFollowupUrl({
     url.searchParams.set("chat_id", chatId);
     if (seq != null) {
       url.searchParams.set("participant_seq", String(seq));
+    }
+    if (completionCode) {
+      url.searchParams.set("completion_code", completionCode);
     }
     return url.toString();
   } catch {

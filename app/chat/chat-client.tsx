@@ -44,17 +44,23 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function ChatClient({ invitationToken }: { invitationToken: string }) {
+  const [started, setStarted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState(false);
   const [ended, setEnded] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [followupUrl, setFollowupUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bootStartedRef = useRef(false);
 
+  // Session creation (which redeems the one-shot invitation token) waits for
+  // the participant to press Start on the splash screen, so merely opening
+  // the link never burns the invitation.
   useEffect(() => {
-    if (bootStartedRef.current) {
+    if (!started || bootStartedRef.current) {
       return;
     }
     bootStartedRef.current = true;
@@ -85,7 +91,34 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         setBootError("Network error. Please reload the page.");
       }
     })();
-  }, [invitationToken]);
+  }, [started, invitationToken]);
+
+  // Close out the session and fetch the survey handoff link. Triggered
+  // automatically when the server flags the interview as ended; retryable
+  // from the completion panel if the request fails.
+  const completeSession = useCallback(async () => {
+    if (!session) {
+      return;
+    }
+    setCompleting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/participant/v1/sessions/${session.chatId}/complete`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        setError("Could not finalize the interview. Please try again.");
+        return;
+      }
+      const body = (await res.json()) as { followupUrl: string | null };
+      setFollowupUrl(body.followupUrl);
+    } catch (_) {
+      setError("Network error. Please try again.");
+    } finally {
+      setCompleting(false);
+    }
+  }, [session]);
 
   const sendTurn = useCallback(
     async (text: string, options?: { hideUserMessage?: boolean }) => {
@@ -117,6 +150,7 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         }
         const body = (await res.json()) as {
           assistantMessage: { id: string; text: string };
+          ended?: boolean;
         };
         setMessages((prev) => [
           ...prev,
@@ -126,13 +160,19 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
             text: body.assistantMessage.text,
           },
         ]);
+        if (body.ended) {
+          setEnded(true);
+          completeSession().catch((err) => {
+            console.error(err);
+          });
+        }
       } catch (_) {
         setError("Network error. Please try again.");
       } finally {
         setPending(false);
       }
     },
-    [session]
+    [session, completeSession]
   );
 
   const seedStartedRef = useRef(false);
@@ -153,32 +193,26 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
     await sendTurn(text);
   }, [draft, pending, ended, session, sendTurn]);
 
-  const handleEnd = useCallback(async () => {
-    if (pending || !session) {
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/participant/v1/sessions/${session.chatId}/complete`,
-        { method: "POST" }
-      );
-      if (!res.ok) {
-        setError("Could not end the interview. Please try again.");
-        return;
-      }
-      const body = (await res.json()) as { followupUrl: string | null };
-      setEnded(true);
-      if (body.followupUrl) {
-        window.location.assign(body.followupUrl);
-      }
-    } catch (_) {
-      setError("Network error. Please try again.");
-    } finally {
-      setPending(false);
-    }
-  }, [session, pending]);
+  if (!started) {
+    return (
+      <main className="mx-auto flex min-h-svh w-full max-w-xl flex-col items-center justify-center px-6 py-16 text-center">
+        <h1 className="font-semibold text-2xl">Research Interview</h1>
+        <p className="mt-4 text-muted-foreground text-sm leading-relaxed">
+          You are about to begin a short interview, followed immediately by a
+          brief survey. Please complete the interview and the survey in one
+          sitting; your session cannot be paused and resumed later.
+        </p>
+        <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+          Your responses and the timestamps of each turn are recorded for
+          research purposes. We do not store the IP address you connect from:
+          only a one-way hash of it, which cannot be turned back into your IP.
+        </p>
+        <Button className="mt-8" onClick={() => setStarted(true)} size="lg">
+          Start
+        </Button>
+      </main>
+    );
+  }
 
   if (bootError) {
     return (
@@ -209,14 +243,6 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
               </span>
             ) : null}
           </div>
-          <Button
-            disabled={pending || ended}
-            onClick={handleEnd}
-            size="sm"
-            variant="outline"
-          >
-            End interview
-          </Button>
         </div>
         <p className="mx-auto mt-2 w-full max-w-3xl text-[11px] text-muted-foreground">
           Your responses and the timestamps of each turn are recorded for
@@ -251,9 +277,39 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
             <p className="text-muted-foreground text-sm italic">Thinking…</p>
           ) : null}
           {ended ? (
-            <p className="text-muted-foreground text-sm">
-              Interview ended. Thank you for participating.
-            </p>
+            <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+              <p className="font-medium">
+                Interview complete. Thank you for participating.
+              </p>
+              <p className="mt-1 text-muted-foreground">
+                Please continue to the short follow-up survey now, in the same
+                sitting.
+              </p>
+              {followupUrl ? (
+                <Button asChild className="mt-3" size="sm">
+                  <a href={followupUrl}>Continue to survey</a>
+                </Button>
+              ) : null}
+              {!followupUrl && completing ? (
+                <p className="mt-3 text-muted-foreground text-sm italic">
+                  Preparing survey link…
+                </p>
+              ) : null}
+              {!(followupUrl || completing) && error ? (
+                <Button
+                  className="mt-3"
+                  onClick={() => {
+                    completeSession().catch((err) => {
+                      console.error(err);
+                    });
+                  }}
+                  size="sm"
+                  variant="outline"
+                >
+                  Retry
+                </Button>
+              ) : null}
+            </div>
           ) : null}
           {error ? (
             <p className="text-destructive text-sm" role="alert">
@@ -264,42 +320,44 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         <ConversationScrollButton />
       </Conversation>
 
-      <footer className="border-t bg-background px-6 py-3">
-        <form
-          className="mx-auto flex w-full max-w-3xl items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit().catch((err) => {
-              console.error(err);
-            });
-          }}
-        >
-          <Textarea
-            className="min-h-[44px] resize-none"
-            disabled={pending || ended}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit().catch((err) => {
-                  console.error(err);
-                });
-              }
+      {ended ? null : (
+        <footer className="border-t bg-background px-6 py-3">
+          <form
+            className="mx-auto flex w-full max-w-3xl items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit().catch((err) => {
+                console.error(err);
+              });
             }}
-            placeholder={ended ? "Interview ended" : "Type your reply…"}
-            rows={2}
-            value={draft}
-          />
-          <Button
-            disabled={pending || ended || draft.trim().length === 0}
-            size="icon"
-            type="submit"
           >
-            <ArrowUpIcon className="size-4" />
-            <span className="sr-only">Send</span>
-          </Button>
-        </form>
-      </footer>
+            <Textarea
+              className="min-h-[44px] resize-none"
+              disabled={pending}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit().catch((err) => {
+                    console.error(err);
+                  });
+                }
+              }}
+              placeholder="Type your reply…"
+              rows={2}
+              value={draft}
+            />
+            <Button
+              disabled={pending || draft.trim().length === 0}
+              size="icon"
+              type="submit"
+            >
+              <ArrowUpIcon className="size-4" />
+              <span className="sr-only">Send</span>
+            </Button>
+          </form>
+        </footer>
+      )}
     </div>
   );
 }
