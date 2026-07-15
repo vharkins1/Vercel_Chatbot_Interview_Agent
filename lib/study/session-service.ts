@@ -2,7 +2,7 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 
-import { openaiClient } from "@/lib/ai/providers";
+import { getOpenAIClient } from "@/lib/ai/providers";
 import {
   createAgentChatAndSession,
   getAgentSessionByChatId,
@@ -138,9 +138,9 @@ export async function executeTurn({
   const selectedQuestions = await ensureChatQuestions(chatId);
   const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
 
-  let response: Awaited<ReturnType<typeof openaiClient.responses.create>>;
+  let response: Awaited<ReturnType<ReturnType<typeof getOpenAIClient>["responses"]["create"]>>;
   try {
-    response = await openaiClient.responses.create({
+    response = await getOpenAIClient().responses.create({
       prompt: {
         id: session.promptId,
         version: session.promptVersion,

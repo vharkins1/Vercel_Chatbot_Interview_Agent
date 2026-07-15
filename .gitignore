@@ -45,3 +45,4 @@ transcripts/
 # Live invitation tokens — output of scripts/create-invitations.ts
 invitations.csv
 
+.env*
