@@ -44,7 +44,7 @@ export async function POST(
   // line and delete the example line below it. Everything else is wired.
   const followupUrl = buildFollowupUrl({
     // base: process.env.QUALTRICS_FOLLOWUP_URL ?? null,
-    base: EXAMPLE_FOLLOWUP_URL,
+    base: process.env.QUALTRICS_FOLLOWUP_URL ?? null,
     chatId,
     seq: result.agentSession?.seq ?? null,
     completionCode: result.agentSession?.completionCode ?? null,
