@@ -3,6 +3,7 @@ import "server-only";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chatQuestion, question, topic } from "@/lib/db/schema";
+import { CLOSING_QUESTION_TEXT } from "@/lib/study/interview-end";
 
 type TxArg = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | TxArg;
@@ -131,6 +132,20 @@ export async function ensureChatQuestions(
   return selectQuestionsForChat(chatId);
 }
 
+// The 15 study questions above are sampled and shuffled per chat; this 16th
+// one is fixed, identical for conditions A/B/C, and always last. It doubles as
+// the end-of-interview signal (lib/study/interview-end.ts matches on it), so
+// the interviewer must emit it verbatim and stop. The participant-facing
+// survey URL is appended to that message server-side — the interviewer must
+// not invent one.
+const CLOSING_BLOCK = [
+  "FINAL QUESTION (16) — CLOSING",
+  "Ask this last, after every topic above is covered, as its own final message.",
+  "Say it verbatim and end the message there. Do not add a URL: the survey link",
+  "is appended automatically after your message is sent.",
+  `1. ${CLOSING_QUESTION_TEXT}`,
+].join("\n");
+
 export function formatQuestionsForPrompt(rows: SelectedQuestion[]): string {
   const byTopic = new Map<number, SelectedQuestion[]>();
   for (const r of rows) {
@@ -149,5 +164,6 @@ export function formatQuestionsForPrompt(rows: SelectedQuestion[]): string {
     const lines = items.map((q, i) => `${i + 1}. ${q.text}`);
     blocks.push([header, ...lines].join("\n"));
   }
+  blocks.push(CLOSING_BLOCK);
   return blocks.join("\n\n");
 }

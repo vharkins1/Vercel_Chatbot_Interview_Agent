@@ -1,13 +1,24 @@
 import { cookies } from "next/headers";
 import { z } from "zod";
-import { countUserMessagesByChatId } from "@/lib/db/queries";
+import { countMessagesByChatId, updateMessageText } from "@/lib/db/queries";
 import {
   PARTICIPANT_COOKIE,
   verifyParticipantSession,
 } from "@/lib/participant-auth";
 import { getRequestIp, hashIp } from "@/lib/request-ip";
-import { looksLikeEnd, MAX_PARTICIPANT_TURNS } from "@/lib/study/interview-end";
-import { executeTurn } from "@/lib/study/session-service";
+import {
+  looksLikeEnd,
+  MAX_PARTICIPANT_TURNS,
+  SURVEY_UNLOCK_AFTER_LLM_TURNS,
+} from "@/lib/study/interview-end";
+import {
+  buildFollowupUrl,
+  formatFollowupLinkForMessage,
+} from "@/lib/study/qualtrics-followup";
+import {
+  completeInterviewSession,
+  executeTurn,
+} from "@/lib/study/session-service";
 
 export const maxDuration = 60;
 
@@ -55,22 +66,60 @@ export async function POST(
     return Response.json({ error: result.error }, { status: result.status });
   }
 
-  // The UI has no manual end control: the server decides when the interview
-  // is over, either because the interviewer's reply reads as a close or
-  // because the turn cap was hit. The client reacts by calling /complete.
-  // The count includes the hidden seed turn, matching how agent sessions
-  // count turns.
-  const userTurns = await countUserMessagesByChatId({ id: chatId });
+  // The server decides when the interview is over: either the interviewer
+  // emitted the fixed closing question (the normal path) or the hard turn cap
+  // was hit. Interviewer replies are counted, not participant+interviewer
+  // exchanges — one OpenAI call is one turn. The first reply answers the
+  // hidden seed turn, so this count is exactly the number of LLM calls made.
+  const llmTurns = await countMessagesByChatId({
+    id: chatId,
+    role: "assistant",
+  });
   const ended =
-    looksLikeEnd(result.assistantText) || userTurns >= MAX_PARTICIPANT_TURNS;
+    looksLikeEnd(result.assistantText) || llmTurns >= MAX_PARTICIPANT_TURNS;
+
+  // Once the interview has run long enough that it should already have
+  // reached the closing question, the UI reveals a subtle fallback link so a
+  // looping interviewer cannot strand the participant short of the survey.
+  const surveyUnlocked = llmTurns >= SURVEY_UNLOCK_AFTER_LLM_TURNS;
+
+  let assistantText = result.assistantText;
+  let followupUrl: string | null = null;
+
+  if (ended) {
+    // Close the session here rather than waiting on a second round trip: this
+    // mints the completionCode the follow-up link is keyed on, and it means a
+    // participant who never gets to call /complete still receives the link.
+    // /complete stays idempotent and is still called by the client.
+    const completion = await completeInterviewSession({ chatId });
+    followupUrl = buildFollowupUrl({
+      chatId,
+      seq: completion?.agentSession?.seq ?? null,
+      completionCode: completion?.agentSession?.completionCode ?? null,
+    });
+
+    if (followupUrl) {
+      // The closing question ends at a colon and the interviewer is told not
+      // to invent a URL, so the link is appended here with the per-session
+      // join keys already attached. Persist the appended form too, so the
+      // exported transcript matches what the participant saw.
+      assistantText += formatFollowupLinkForMessage(followupUrl);
+      await updateMessageText({
+        id: result.assistantMessageId,
+        text: assistantText,
+      });
+    }
+  }
 
   return Response.json({
     assistantMessage: {
       id: result.assistantMessageId,
       role: "assistant",
-      text: result.assistantText,
+      text: assistantText,
     },
     model: result.model,
     ended,
+    surveyUnlocked,
+    followupUrl,
   });
 }

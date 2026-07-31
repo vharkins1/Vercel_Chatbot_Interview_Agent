@@ -30,8 +30,17 @@ The two studies may be merged into a single combined run later; for now they're 
 Tracked here so the next-up work is visible without leaving the goal doc.
 
 - **Qualtrics Response Import API integration (Study 1).** Submit a post-survey response programmatically when an agent completes the interview. Endpoint: `POST https://{datacenter}.qualtrics.com/API/v3/surveys/{surveyId}/responses` with header `X-API-TOKEN`. New env vars: `QUALTRICS_API_TOKEN`, `QUALTRICS_DATACENTER`, `QUALTRICS_SURVEY_ID_STUDY1`. Need to map our interview schema to the survey's question IDs (`QID3`, `QID7`, …) and add a flag distinguishing agent-submitted responses from human ones in exports.
-- **Browser embedded-data handoff (Study 2).** Today `/complete` redirects to a static `QUALTRICS_FOLLOWUP_URL`. To match Qualtrics responses back to interview rows we need to append embedded data (`pid`, `condition`, `completion_code`) as query params, and declare those three as Embedded Data at the top of the Qualtrics survey flow.
+- **Browser embedded-data handoff (Study 2).** `chat_id`, `participant_seq` and `completion_code` are appended as query params by `lib/study/qualtrics-followup.ts` and must be declared as Embedded Data at the top of the follow-up survey's flow or Qualtrics drops them. `followupBase()` reads the live `QUALTRICS_FOLLOWUP_URL` and returns null when it is unset, in which case no link is produced at all. Remaining: run the embedded-data declaration against the human follow-up survey, and confirm `QUALTRICS_FOLLOWUP_URL` is set in the production environment.
 - **`completion_code` on `AgentSession`.** Random 16-char base64url, set at `/complete`. Acts as the join key between transcripts and Qualtrics responses when matching exports.
+
+### Survey handoff (Study 2)
+
+How the participant reaches the Qualtrics survey, and why it is built this way. Earlier versions matched the interviewer's closing prose against a list of stock phrases, which both missed rephrased endings and fired early on innocuous ones like "wrap up".
+
+- **Fixed closing question.** The per-chat question list is 5 topics × 3 sampled questions, plus a 16th fixed question appended by `formatQuestionsForPrompt` and defined as `CLOSING_QUESTION_TEXT` in `lib/study/interview-end.ts`. It is identical for A, B and C, never shuffled, and always last, so no condition is distinguishable by its ending.
+- **It doubles as the end signal.** `looksLikeEnd` normalizes the interviewer's reply (lowercase, non-alphanumeric runs collapsed) and substring-matches a core fragment of that sentence. Nothing else ends an interview except the hard cap.
+- **The link is appended server-side.** The closing question ends at a colon and the prompt block tells the interviewer not to invent a URL; the participant turns route closes the session, builds the link with the per-session join keys, appends it to that message, and rewrites the stored row so the exported transcript matches what the participant saw.
+- **Fallback.** After `SURVEY_UNLOCK_AFTER_LLM_TURNS` (20) interviewer replies the interview should already have closed, so the chat UI reveals a low-key "Finished? Continue to the survey" control. `MAX_PARTICIPANT_TURNS` (25) remains the hard stop. Both count interviewer replies (one OpenAI call), not participant+interviewer exchanges.
 
 ### Pre-launch audit checklist
 

@@ -53,6 +53,7 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
   const [ended, setEnded] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [followupUrl, setFollowupUrl] = useState<string | null>(null);
+  const [surveyUnlocked, setSurveyUnlocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bootStartedRef = useRef(false);
 
@@ -93,12 +94,12 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
     })();
   }, [started, invitationToken]);
 
-  // Close out the session and fetch the survey handoff link. Triggered
-  // automatically when the server flags the interview as ended; retryable
-  // from the completion panel if the request fails.
+  // Close out the session and fetch the survey handoff link. On the normal
+  // path the turns response already carries both, so this is belt-and-braces;
+  // it is the primary source for the fallback button and for retries.
   const completeSession = useCallback(async () => {
     if (!session) {
-      return;
+      return null;
     }
     setCompleting(true);
     setError(null);
@@ -109,16 +110,28 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
       );
       if (!res.ok) {
         setError("Could not finalize the interview. Please try again.");
-        return;
+        return null;
       }
       const body = (await res.json()) as { followupUrl: string | null };
-      setFollowupUrl(body.followupUrl);
+      setFollowupUrl((prev) => body.followupUrl ?? prev);
+      return body.followupUrl;
     } catch (_) {
       setError("Network error. Please try again.");
+      return null;
     } finally {
       setCompleting(false);
     }
   }, [session]);
+
+  // Fallback path: the participant gave up on a looping interviewer and used
+  // the unlocked survey link. Close the session, then hand off.
+  const leaveForSurvey = useCallback(async () => {
+    const url = (await completeSession()) ?? followupUrl;
+    setEnded(true);
+    if (url) {
+      window.location.href = url;
+    }
+  }, [completeSession, followupUrl]);
 
   const sendTurn = useCallback(
     async (text: string, options?: { hideUserMessage?: boolean }) => {
@@ -151,6 +164,8 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         const body = (await res.json()) as {
           assistantMessage: { id: string; text: string };
           ended?: boolean;
+          surveyUnlocked?: boolean;
+          followupUrl?: string | null;
         };
         setMessages((prev) => [
           ...prev,
@@ -160,6 +175,14 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
             text: body.assistantMessage.text,
           },
         ]);
+        // The server already closed the session and built the link when it
+        // flagged the end, so the link is in hand before /complete resolves.
+        if (body.followupUrl) {
+          setFollowupUrl(body.followupUrl);
+        }
+        if (body.surveyUnlocked) {
+          setSurveyUnlocked(true);
+        }
         if (body.ended) {
           setEnded(true);
           completeSession().catch((err) => {
@@ -322,6 +345,24 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
 
       {ended ? null : (
         <footer className="border-t bg-background px-6 py-3">
+          {surveyUnlocked ? (
+            <div className="mx-auto mb-2 flex w-full max-w-3xl justify-end">
+              <Button
+                className="h-auto px-1 py-0.5 text-[11px] text-muted-foreground"
+                disabled={completing}
+                onClick={() => {
+                  leaveForSurvey().catch((err) => {
+                    console.error(err);
+                  });
+                }}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                Finished? Continue to the survey
+              </Button>
+            </div>
+          ) : null}
           <form
             className="mx-auto flex w-full max-w-3xl items-end gap-2"
             onSubmit={(e) => {

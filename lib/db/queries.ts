@@ -142,21 +142,48 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   }
 }
 
-export async function countUserMessagesByChatId({
+export async function countMessagesByChatId({
   id,
+  role,
 }: {
   id: string;
+  role: "user" | "assistant";
 }): Promise<number> {
   try {
     const [row] = await db
       .select({ n: count() })
       .from(message)
-      .where(and(eq(message.chatId, id), eq(message.role, "user")));
+      .where(and(eq(message.chatId, id), eq(message.role, role)));
     return row?.n ?? 0;
   } catch (_error) {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to count user messages by chat id"
+      `Failed to count ${role} messages by chat id`
+    );
+  }
+}
+
+/**
+ * Overwrite the text of a single message. Used to append the Qualtrics link to
+ * the interviewer's closing message after the fact, so the persisted
+ * transcript matches what the participant actually saw on screen.
+ */
+export async function updateMessageText({
+  id,
+  text,
+}: {
+  id: string;
+  text: string;
+}) {
+  try {
+    return await db
+      .update(message)
+      .set({ parts: [{ type: "text", text }] })
+      .where(eq(message.id, id));
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to update message text"
     );
   }
 }
