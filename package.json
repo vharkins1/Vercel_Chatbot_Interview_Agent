@@ -25,6 +25,7 @@
     "db:export-sessions": "tsx scripts/export-sessions.ts",
     "db:export-transcripts": "tsx scripts/export-transcripts.ts",
     "db:export-masterfile": "tsx scripts/export-masterfile.ts",
+    "verify:handoff": "tsx scripts/verify-survey-handoff.ts",
     "db:audit": "tsx scripts/audit-data.ts",
     "db:count-participants": "tsx scripts/count-participants.ts",
     "db:ensure-survey-fields": "tsx scripts/ensure-survey-fields.ts",
