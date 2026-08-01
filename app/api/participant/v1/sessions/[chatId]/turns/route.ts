@@ -96,6 +96,8 @@ export async function POST(
       chatId,
       seq: completion?.agentSession?.seq ?? null,
       completionCode: completion?.agentSession?.completionCode ?? null,
+      qualtricsResponseId:
+        completion?.agentSession?.qualtricsResponseId ?? null,
     });
 
     if (followupUrl) {

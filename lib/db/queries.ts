@@ -492,6 +492,8 @@ export async function createAgentChatAndSession({
   conditionLabel,
   partnerModel,
   startIpHash,
+  qualtricsResponseId,
+  device,
 }: {
   chatId: string;
   partnerAgentId: string | null;
@@ -505,6 +507,13 @@ export async function createAgentChatAndSession({
   conditionLabel?: string | null;
   partnerModel?: string | null;
   startIpHash?: string | null;
+  qualtricsResponseId?: string | null;
+  device?: {
+    deviceType: string;
+    browser: string;
+    os: string;
+    userAgent: string;
+  } | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession }> {
   try {
     return await db.transaction(async (tx) => {
@@ -535,6 +544,11 @@ export async function createAgentChatAndSession({
           condition: condition ?? null,
           conditionLabel: conditionLabel ?? null,
           partnerModel: partnerModel ?? null,
+          qualtricsResponseId: qualtricsResponseId ?? null,
+          deviceType: device?.deviceType ?? null,
+          browser: device?.browser ?? null,
+          os: device?.os ?? null,
+          userAgent: device?.userAgent ?? null,
         })
         .returning();
 
@@ -571,8 +585,73 @@ export async function getInvitationByJti({
 }
 
 export type RedeemInvitationResult =
-  | { ok: true; condition: string }
+  | { ok: true; condition: string | null }
   | { ok: false; reason: "already_redeemed" | "not_found" };
+
+/**
+ * Multi-use counterpart to redeemInvitation, for the Qualtrics entry link.
+ *
+ * A reusable invitation is never burned, so there is nothing to guard against
+ * concurrently — we just count uses for operational visibility (how many
+ * interviews the link has served) and stamp the most recent one. Best-effort
+ * on purpose: a failure to bump a counter must not stop an interview starting,
+ * so callers deliberately do not await this on the critical path.
+ */
+export async function recordInvitationUse({
+  jti,
+  chatId,
+  externalId,
+}: {
+  jti: string;
+  chatId: string;
+  externalId: string;
+}): Promise<void> {
+  try {
+    await db
+      .update(invitation)
+      .set({
+        useCount: sql`${invitation.useCount} + 1`,
+        redeemedAt: new Date(),
+        redeemedByChatId: chatId,
+        redeemedByExternalId: externalId,
+      })
+      .where(eq(invitation.jti, jti));
+  } catch (error) {
+    console.error("[recordInvitationUse] non-fatal:", error);
+  }
+}
+
+/**
+ * Look up an existing human interview by the Qualtrics ResponseID it was
+ * started with. Backs idempotent session creation: with a reusable entry link,
+ * a reload or a browser back-button would otherwise open a second interview
+ * under the same respondent and split their data across two transcripts.
+ */
+export async function getHumanSessionByQualtricsResponseId({
+  qualtricsResponseId,
+}: {
+  qualtricsResponseId: string;
+}): Promise<AgentSession | undefined> {
+  try {
+    const [row] = await db
+      .select()
+      .from(agentSession)
+      .where(
+        and(
+          eq(agentSession.qualtricsResponseId, qualtricsResponseId),
+          isNull(agentSession.partnerAgentId)
+        )
+      )
+      .orderBy(asc(agentSession.createdAt))
+      .limit(1);
+    return row;
+  } catch (_error) {
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to look up session by Qualtrics response id"
+    );
+  }
+}
 
 export async function redeemInvitation({
   jti,

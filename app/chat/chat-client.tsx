@@ -30,6 +30,11 @@ type Session = {
   chatId: string;
   condition?: "A" | "B" | "C";
   conditionLabel?: string;
+  // Present when the server matched an in-progress interview for this
+  // participant (same Qualtrics ResponseID) instead of creating a new one —
+  // a reload or back-button on the reusable entry link.
+  resumed?: boolean;
+  messages?: Array<{ id: string; role: "user" | "assistant"; text: string }>;
 };
 
 const INTERVIEW_START_PROMPT =
@@ -39,11 +44,19 @@ const ERROR_MESSAGES: Record<string, string> = {
   invalid_invitation: "This invitation link is invalid.",
   invitation_expired: "This invitation link has expired.",
   already_redeemed: "This invitation has already been used.",
+  already_completed:
+    "You have already completed this interview. Please return to the survey tab to finish the study.",
   participant_api_disabled:
     "The interview is not available right now. Please try again later.",
 };
 
-export function ChatClient({ invitationToken }: { invitationToken: string }) {
+export function ChatClient({
+  invitationToken,
+  qualtricsResponseId,
+}: {
+  invitationToken: string;
+  qualtricsResponseId?: string | null;
+}) {
   const [started, setStarted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -56,6 +69,7 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
   const [surveyUnlocked, setSurveyUnlocked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bootStartedRef = useRef(false);
+  const seedStartedRef = useRef(false);
 
   // Session creation (which redeems the one-shot invitation token) waits for
   // the participant to press Start on the splash screen, so merely opening
@@ -70,7 +84,10 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
         const res = await fetch("/api/participant/v1/sessions", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ invitationToken }),
+          body: JSON.stringify({
+            invitationToken,
+            ...(qualtricsResponseId ? { qualtricsResponseId } : {}),
+          }),
         });
         if (!res.ok) {
           let reason = "invalid_invitation";
@@ -87,12 +104,23 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
           return;
         }
         const body = (await res.json()) as Session;
+        // Resuming: replay what was already said. The hidden seed turn is
+        // persisted like any other user message, so drop it here — it is an
+        // instruction to the interviewer, not something the participant wrote.
+        if (body.resumed && body.messages?.length) {
+          setMessages(
+            body.messages.filter(
+              (m) => !(m.role === "user" && m.text === INTERVIEW_START_PROMPT)
+            )
+          );
+          seedStartedRef.current = true;
+        }
         setSession(body);
       } catch (_) {
         setBootError("Network error. Please reload the page.");
       }
     })();
-  }, [started, invitationToken]);
+  }, [started, invitationToken, qualtricsResponseId]);
 
   // Close out the session and fetch the survey handoff link. On the normal
   // path the turns response already carries both, so this is belt-and-braces;
@@ -198,7 +226,6 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
     [session, completeSession]
   );
 
-  const seedStartedRef = useRef(false);
   useEffect(() => {
     if (!session || seedStartedRef.current) {
       return;
@@ -224,6 +251,14 @@ export function ChatClient({ invitationToken }: { invitationToken: string }) {
           You are about to begin a short interview, followed immediately by a
           brief survey. Please complete the interview and the survey in one
           sitting; your session cannot be paused and resumed later.
+        </p>
+        <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
+          Feel free to speak your answers instead of typing them, using your
+          device's built-in dictation: the microphone key on a phone or tablet
+          keyboard, or your computer's dictation shortcut (Windows: Win + H;
+          Mac: the microphone key, or System Settings → Keyboard → Dictation).
+          Dictation is handled entirely by your own device — we receive only the
+          text you send.
         </p>
         <p className="mt-3 text-muted-foreground text-sm leading-relaxed">
           Your responses and the timestamps of each turn are recorded for

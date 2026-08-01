@@ -32,7 +32,15 @@ import { generateJti, signInvitation } from "../lib/study/invitations";
 config({ path: ".env.local" });
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-const REQUIRED_FIELDS = ["chat_id", "participant_seq", "completion_code"];
+// `rid` is the Qualtrics ResponseID of the PRE-interview survey, carried
+// through the interview and back so pre ↔ transcript ↔ post all join on one
+// key. Like the others it is silently dropped unless declared in the flow.
+const REQUIRED_FIELDS = [
+  "chat_id",
+  "participant_seq",
+  "completion_code",
+  "rid",
+];
 
 let failures = 0;
 

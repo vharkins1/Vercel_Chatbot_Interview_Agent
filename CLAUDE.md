@@ -10,7 +10,7 @@ The codebase has **three entry points** that share the same DB:
 
 1. **Agent API** (`app/api/agent/v1/...`): backend-to-backend, bearer-token auth via `Authorization: Bearer <key>`. Sessions are attributed to a `PartnerAgent` row.
 2. **Participant API** (`app/api/participant/v1/...`): browser-side, authenticated by an invitation JWT on session creation, then a short-lived `participant_session` cookie for turns/complete. Sessions have `Chat.partnerAgentId = NULL`.
-3. **Participant chat UI** (`app/chat/page.tsx`): the human-facing page. Entered via `/chat?t=<invitation-jwt>` from a recruitment link. Renders against the participant API and (on completion) redirects to `QUALTRICS_FOLLOWUP_URL` if set.
+3. **Participant chat UI** (`app/chat/page.tsx`): the human-facing page. Entered via `/chat?t=<invitation-jwt>&rid=<qualtrics-response-id>`, normally as the End-of-Survey redirect from the PRE-interview Qualtrics survey. Renders against the participant API and (on completion) redirects to `QUALTRICS_FOLLOWUP_URL` if set. See "Qualtrics-first human flow" below.
 
 The old `app/(chat)/` playground from the Vercel template was deleted in commit `5d1d036` and is *not* being restored. Ignore any README references to it.
 
@@ -37,7 +37,8 @@ pnpm db:migrate           # apply migrations (also runs implicitly on build)
 pnpm db:studio
 pnpm db:create-partner <name>          # mint a PartnerAgent + raw bearer key (printed once)
 pnpm db:rotate-partner / db:unrevoke-partner / db:list-partners
-pnpm db:create-invitations             # generate invitation JWTs pinned to a condition
+pnpm db:create-invitations             # generate one-shot invitation JWTs pinned to a condition
+pnpm db:create-entry-link              # mint THE reusable Qualtrics entry link (no arm pinned)
 pnpm db:create-session-view            # SessionOverview view (already in prod)
 pnpm db:create-session-transcript-view # SessionTranscript view (NOT yet run in prod; see goal.md)
 pnpm db:export-sessions / db:export-transcripts / db:export-masterfile
@@ -57,7 +58,7 @@ Each condition is a pointer to an OpenAI Stored Prompt via env vars `OPENAI_A_PR
 
 Condition selection:
 - **Agent API (`POST /api/agent/v1/sessions`):** if `invitationToken` (JWT) is in the body, condition is whatever the token pinned. Otherwise `pickRandomCondition()` randomly assigns one. There is no direct `condition` field in the body schema; the random fallback exists to keep the study blinded.
-- **Participant API (`POST /api/participant/v1/sessions`):** `invitationToken` is required, so condition is always pinned at token mint time. To get coverage across all three arms for human respondents, the operator mints per-condition invitation batches with `pnpm db:create-invitations --condition A|B|C`.
+- **Participant API (`POST /api/participant/v1/sessions`):** `invitationToken` is required, but it may or may not pin an arm. A token minted by `pnpm db:create-invitations --condition A|B|C` pins one (the original one-shot recruitment model). The Qualtrics **entry link** (`pnpm db:create-entry-link`) pins none — `Invitation.condition` is NULL — and the server draws simple-random at session creation. Drawing at session creation rather than at redirect means participants who click through and abandon before starting never consume an arm.
 
 The chosen condition is written to `AgentSession.condition` (A/B/C) and `AgentSession.conditionLabel` (real label, staff-only) together with `promptId` + `promptVersion`, freezing the trial against later prompt edits.
 
@@ -68,6 +69,21 @@ The chosen condition is written to `AgentSession.condition` (A/B/C) and `AgentSe
 - `sessions/[chatId]/turns/route.ts`: post one user message, server uses OpenAI Responses API with `previous_response_id` chain to maintain continuity. Callers never replay history.
 - `sessions/[chatId]/complete/route.ts`: close the session.
 - `sessions/[chatId]/route.ts` (GET): fetch full transcript.
+
+### Qualtrics-first human flow (Study 2)
+
+Humans go **Qualtrics → app → Qualtrics**:
+
+1. **PRE survey** (device self-report, general self-efficacy, machine heuristic) ends in an End-of-Survey "Redirect to a URL" pointing at `<app>/chat?t=<entry-token>&rid=${e://Field/ResponseID}`. That URL is identical for every participant — print it with `pnpm db:create-entry-link --base-url <app>`.
+2. **Interview** in the participant chat UI. The arm is drawn server-side; Qualtrics is never told which one.
+3. **POST survey**, reached by the existing completion redirect, now carrying `rid` alongside `chat_id`, `participant_seq` and `completion_code`.
+
+Two consequences of the entry link being reusable and public:
+
+- **Identity comes from `rid`, not from the token.** The Qualtrics ResponseID is stored on `AgentSession.qualtricsResponseId` and used as `Participant.externalId`. It is the join key across pre-survey ↔ transcript ↔ post-survey; the arm is recovered by joining on it at analysis time.
+- **Session creation is idempotent on `rid`.** A reload or back-button returns the in-progress chat plus its transcript (`resumed: true`) instead of starting a second interview; a completed one returns `409 already_completed`.
+
+`Invitation.multiUse` marks a row reusable. The older `PARTICIPANT_INVITATIONS_REUSABLE=1` env flag still works but is a blunt instrument — it makes *every* invitation reusable — and is not how the live flow works.
 
 ### Auth model
 - **Agent API**: `lib/agent-auth.ts` → `requireAgentAuth` → `sha256(bearerToken + APP_PEPPER)` lookup against `PartnerAgent.keyHash`. If `APP_PEPPER` is unset, the whole agent API returns `503 agent_api_disabled`. Rotating `APP_PEPPER` invalidates every existing partner key; reissue via `pnpm db:create-partner`.

@@ -13,10 +13,10 @@ import { checkPartnerSessionRateLimit } from "@/lib/ratelimit";
 import { getRequestIp, hashIp } from "@/lib/request-ip";
 import { toAgentSessionDTO } from "@/lib/study/agent-session-dto";
 import {
-  ALL_CONDITIONS,
   type Condition,
   isCondition,
   labelForCondition,
+  pickRandomCondition,
   promptForCondition,
 } from "@/lib/study/conditions";
 import { verifyInvitation } from "@/lib/study/invitations";
@@ -33,11 +33,6 @@ const bodySchema = z.object({
   invitationToken: z.string().min(1).optional(),
   partnerModel: z.string().min(1).max(200),
 });
-
-function pickRandomCondition(): Condition {
-  const idx = Math.floor(Math.random() * ALL_CONDITIONS.length);
-  return ALL_CONDITIONS[idx];
-}
 
 export async function POST(request: Request) {
   const auth = await requireAgentAuth(request);
@@ -167,10 +162,12 @@ async function createSession(request: Request, auth: AuthOk) {
       }
       return Response.json({ error: "invalid_invitation" }, { status: 401 });
     }
-    if (!isCondition(redeem.condition)) {
-      return Response.json({ error: "invalid_condition" }, { status: 500 });
-    }
-    condition = redeem.condition;
+    // A token that pins no arm (the Qualtrics entry link) is not an error here
+    // — it just means the arm was never fixed, so draw one as if no token had
+    // been supplied at all.
+    condition = isCondition(redeem.condition)
+      ? redeem.condition
+      : pickRandomCondition();
   } else {
     condition = pickRandomCondition();
   }

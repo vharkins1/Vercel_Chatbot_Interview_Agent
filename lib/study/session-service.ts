@@ -39,6 +39,8 @@ export async function createInterviewSession({
   instructions,
   partnerModel,
   startIpHash,
+  qualtricsResponseId,
+  device,
 }: {
   chatId: string;
   partnerAgentId: string | null;
@@ -49,6 +51,13 @@ export async function createInterviewSession({
   instructions?: string | null;
   partnerModel?: string | null;
   startIpHash?: string | null;
+  qualtricsResponseId?: string | null;
+  device?: {
+    deviceType: string;
+    browser: string;
+    os: string;
+    userAgent: string;
+  } | null;
 }): Promise<{ chat: Chat; agentSession: AgentSession; participantId: string }> {
   const participant = await upsertParticipant({
     partnerAgentId,
@@ -71,6 +80,8 @@ export async function createInterviewSession({
     conditionLabel: labelForCondition(condition),
     partnerModel: partnerModel ?? null,
     startIpHash: startIpHash ?? null,
+    qualtricsResponseId: qualtricsResponseId ?? null,
+    device: device ?? null,
   });
 
   return { chat, agentSession, participantId: participant.id };
@@ -138,7 +149,9 @@ export async function executeTurn({
   const selectedQuestions = await ensureChatQuestions(chatId);
   const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
 
-  let response: Awaited<ReturnType<ReturnType<typeof getOpenAIClient>["responses"]["create"]>>;
+  let response: Awaited<
+    ReturnType<ReturnType<typeof getOpenAIClient>["responses"]["create"]>
+  >;
   try {
     response = await getOpenAIClient().responses.create({
       prompt: {

@@ -12,6 +12,11 @@ async function ChatBoot({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const tokenRaw = params.t;
   const token = Array.isArray(tokenRaw) ? tokenRaw[0] : tokenRaw;
+  // Qualtrics ResponseID of the pre-interview survey, piped into the entry
+  // link by the pre-survey's End-of-Survey redirect. Absent for the older
+  // one-shot recruitment links, which carry identity in the token itself.
+  const ridRaw = params.rid;
+  const rid = Array.isArray(ridRaw) ? ridRaw[0] : ridRaw;
 
   if (!token) {
     return (
@@ -25,7 +30,9 @@ async function ChatBoot({ searchParams }: { searchParams: SearchParams }) {
     );
   }
 
-  return <ChatClient invitationToken={token} />;
+  return (
+    <ChatClient invitationToken={token} qualtricsResponseId={rid ?? null} />
+  );
 }
 
 export default function ChatPage({

@@ -16,13 +16,21 @@ export function generateJti(): string {
   return randomBytes(16).toString("base64url");
 }
 
+/**
+ * `condition: null` mints an entry-link token that pins no arm — the server
+ * draws one at session creation. Omitting the claim entirely (rather than
+ * encoding a null) keeps the token opaque: nothing in the JWT payload hints
+ * that arms exist at all, which matters because the entry link is a single
+ * public URL that participants can decode.
+ */
 export async function signInvitation(params: {
   jti: string;
-  condition: Condition;
+  condition: Condition | null;
   ttlSeconds: number;
 }): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  return await new SignJWT({ condition: params.condition })
+  const claims = params.condition ? { condition: params.condition } : {};
+  return await new SignJWT(claims)
     .setProtectedHeader({ alg: ALG })
     .setJti(params.jti)
     .setIssuedAt(now)
@@ -32,7 +40,7 @@ export async function signInvitation(params: {
 
 export type VerifiedInvitation = {
   jti: string;
-  condition: Condition;
+  condition: Condition | null;
   exp: number;
 };
 
@@ -48,12 +56,14 @@ export async function verifyInvitation(
   if (typeof payload.exp !== "number") {
     throw new Error("invitation missing exp");
   }
-  if (!isCondition(payload.condition)) {
+  // Absent is legitimate (entry link); present-but-malformed is not, since it
+  // would silently reassign an arm the operator believed was pinned.
+  if (payload.condition !== undefined && !isCondition(payload.condition)) {
     throw new Error("invitation has invalid condition");
   }
   return {
     jti: payload.jti,
-    condition: payload.condition,
+    condition: isCondition(payload.condition) ? payload.condition : null,
     exp: payload.exp,
   };
 }

@@ -17,6 +17,7 @@
     "db:up": "drizzle-kit up",
     "db:create-partner": "tsx scripts/create-partner-agent.ts",
     "db:create-invitations": "tsx scripts/create-invitations.ts",
+    "db:create-entry-link": "tsx scripts/create-entry-link.ts",
     "db:rotate-partner": "tsx scripts/rotate-partner-key.ts",
     "db:unrevoke-partner": "tsx scripts/unrevoke-partner.ts",
     "db:list-partners": "tsx scripts/list-partners.ts",

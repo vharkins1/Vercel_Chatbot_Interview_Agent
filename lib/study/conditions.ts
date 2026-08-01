@@ -10,6 +10,21 @@ export function isCondition(value: unknown): value is Condition {
 }
 
 /**
+ * Simple (not blocked, not adaptive) randomisation across the three arms.
+ *
+ * Used whenever a session arrives without a pinned condition: agent sessions
+ * created with no invitation token, and every participant arriving through the
+ * Qualtrics entry link. Keeping it simple random means the study can be
+ * described as simple randomisation in the methods section; cell sizes will
+ * drift by chance, which is expected and handled in analysis rather than by
+ * balancing here.
+ */
+export function pickRandomCondition(): Condition {
+  const index = Math.floor(Math.random() * ALL_CONDITIONS.length);
+  return ALL_CONDITIONS[index];
+}
+
+/**
  * Internal-only mapping from blinded code label (A/B/C) to the study's
  * descriptive label. Used for DB writes (AgentSession.conditionLabel) and
  * never returned through any API or shown in the UI — with one deliberate

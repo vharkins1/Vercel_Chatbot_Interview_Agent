@@ -106,6 +106,20 @@ export const agentSession = pgTable(
     partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id),
     participantId: uuid("participantId").references(() => participant.id),
     completionCode: text("completionCode"),
+    // Qualtrics ResponseID of the PRE-interview survey, handed to us as the
+    // `rid` query param on the entry link. This is the join key across all
+    // three artifacts: pre-survey response ↔ transcript ↔ post-survey response.
+    // Null for agent sessions and for any human who reached /chat without one.
+    qualtricsResponseId: text("qualtricsResponseId"),
+    // Device/browser the participant took the interview on, derived server-side
+    // from the User-Agent at session creation (lib/study/device.ts). Kept as
+    // dedicated columns rather than JSONB so device can be a grouping variable
+    // in SQL. Objective counterpart to the self-reported device item on the
+    // pre-survey. Null for agent sessions.
+    deviceType: text("deviceType"),
+    browser: text("browser"),
+    os: text("os"),
+    userAgent: text("userAgent"),
   },
   (table) => ({
     partnerAgentIdx: index("AgentSession_partnerAgentId_idx").on(
@@ -116,6 +130,9 @@ export const agentSession = pgTable(
     ),
     completionCodeIdx: uniqueIndex("AgentSession_completionCode_idx").on(
       table.completionCode
+    ),
+    qualtricsResponseIdx: index("AgentSession_qualtricsResponseId_idx").on(
+      table.qualtricsResponseId
     ),
   })
 );
@@ -217,7 +234,10 @@ export const invitation = pgTable(
   "Invitation",
   {
     jti: text("jti").primaryKey().notNull(),
-    condition: text("condition").notNull(),
+    // Null means the invitation pins no arm and the server assigns one at
+    // session creation (the Qualtrics entry link). Non-null keeps the original
+    // behaviour: the arm was fixed when the token was minted.
+    condition: text("condition"),
     conditionLabel: text("conditionLabel"),
     expiresAt: timestamp("expiresAt").notNull(),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -225,6 +245,12 @@ export const invitation = pgTable(
     redeemedByChatId: uuid("redeemedByChatId"),
     redeemedByExternalId: text("redeemedByExternalId"),
     batchLabel: text("batchLabel"),
+    // Per-row reusability. One-shot invitations (the original recruitment
+    // model) stay false and are burned by redeemInvitation. The Qualtrics
+    // entry link is true: one URL serves every participant, so identity comes
+    // from the Qualtrics ResponseID instead of from token uniqueness.
+    multiUse: boolean("multiUse").notNull().default(false),
+    useCount: integer("useCount").notNull().default(0),
   },
   (table) => ({
     batchIdx: index("Invitation_batchLabel_idx").on(table.batchLabel),

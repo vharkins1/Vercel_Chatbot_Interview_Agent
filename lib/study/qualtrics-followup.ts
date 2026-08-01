@@ -26,10 +26,12 @@ export function buildFollowupUrl({
   chatId,
   seq,
   completionCode,
+  qualtricsResponseId,
 }: {
   chatId: string;
   seq: number | null;
   completionCode: string | null;
+  qualtricsResponseId?: string | null;
 }): string | null {
   const base = followupBase();
   if (!base) {
@@ -43,6 +45,12 @@ export function buildFollowupUrl({
     }
     if (completionCode) {
       url.searchParams.set("completion_code", completionCode);
+    }
+    // Carried through from the pre-survey so pre, interview and post can be
+    // joined on one key. Must also be declared as Embedded Data on the
+    // post-survey's flow (`rid`) or Qualtrics drops it silently.
+    if (qualtricsResponseId) {
+      url.searchParams.set("rid", qualtricsResponseId);
     }
     return url.toString();
   } catch {
