@@ -15,7 +15,7 @@ async function ChatBoot({ searchParams }: { searchParams: SearchParams }) {
   // Qualtrics ResponseID of the pre-interview survey, piped into the entry
   // link by the pre-survey's End-of-Survey redirect. Absent for the older
   // one-shot recruitment links, which carry identity in the token itself.
-  const ridRaw = params.rid;
+  const ridRaw = params.StudyID;
   const rid = Array.isArray(ridRaw) ? ridRaw[0] : ridRaw;
 
   if (!token) {

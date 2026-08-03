@@ -100,7 +100,7 @@ async function main() {
     });
 
     const base = args.baseUrl.replace(/\/+$/, "");
-    const redirect = `${base}/chat?t=${token}&rid=\${e://Field/ResponseID}`;
+    const redirect = `${base}/chat?t=${token}&StudyID=\${e://Field/StudyID}`;
 
     console.error("Entry link created.");
     console.error(`  jti:        ${jti}`);

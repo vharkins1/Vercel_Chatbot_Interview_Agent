@@ -50,7 +50,7 @@ export function buildFollowupUrl({
     // joined on one key. Must also be declared as Embedded Data on the
     // post-survey's flow (`rid`) or Qualtrics drops it silently.
     if (qualtricsResponseId) {
-      url.searchParams.set("rid", qualtricsResponseId);
+      url.searchParams.set("StudyID", qualtricsResponseId);
     }
     return url.toString();
   } catch {

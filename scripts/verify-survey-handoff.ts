@@ -39,7 +39,7 @@ const REQUIRED_FIELDS = [
   "chat_id",
   "participant_seq",
   "completion_code",
-  "rid",
+  "StudyID",
 ];
 
 let failures = 0;
