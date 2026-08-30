@@ -11,12 +11,6 @@ const CreateDevSessionSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (process.env.NODE_ENV !== "development" && process.env.NEXT_PUBLIC_VERCEL_ENV === "production") {
-    // Basic protection to prevent access on real prod domain if leaked,
-    // though the Condition "DEV" will isolate data anyway.
-    return Response.json({ error: "dev_only" }, { status: 403 });
-  }
-
   const json = await request.json().catch(() => ({}));
   const parsed = CreateDevSessionSchema.safeParse(json);
   if (!parsed.success) {
