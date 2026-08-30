@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     partnerAgentId: null,
     participantExternalId,
     condition: "DEV",
+    overridePromptVersion: process.env.OPENAI_A_PROMPT_VERSION ?? "3",
     title: "Developer Test Session",
     startIpHash: ipHash,
     qualtricsResponseId: "dev-mode",
