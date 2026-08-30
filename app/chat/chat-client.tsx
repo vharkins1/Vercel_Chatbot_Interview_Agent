@@ -53,9 +53,13 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function ChatClient({
   invitationToken,
   qualtricsResponseId,
+  sessionEndpoint = "/api/participant/v1/sessions",
+  devPromptId,
 }: {
   invitationToken: string;
   qualtricsResponseId?: string | null;
+  sessionEndpoint?: string;
+  devPromptId?: string;
 }) {
   const [started, setStarted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -81,12 +85,13 @@ export function ChatClient({
     bootStartedRef.current = true;
     (async () => {
       try {
-        const res = await fetch("/api/participant/v1/sessions", {
+        const res = await fetch(sessionEndpoint, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             invitationToken,
             ...(qualtricsResponseId ? { qualtricsResponseId } : {}),
+            ...(devPromptId ? { devPromptId } : {}),
           }),
         });
         if (!res.ok) {
@@ -120,7 +125,7 @@ export function ChatClient({
         setBootError("Network error. Please reload the page.");
       }
     })();
-  }, [started, invitationToken, qualtricsResponseId]);
+  }, [started, invitationToken, qualtricsResponseId, sessionEndpoint, devPromptId]);
 
   // Close out the session and fetch the survey handoff link. On the normal
   // path the turns response already carries both, so this is belt-and-braces;

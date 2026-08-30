@@ -1,6 +1,8 @@
-export type Condition = "A" | "B" | "C";
+export type Condition = "A" | "B" | "C" | "DEV";
 
-export const ALL_CONDITIONS: readonly Condition[] = ["A", "B", "C"] as const;
+export const ALL_CONDITIONS: readonly Condition[] = ["A", "B", "C", "DEV"] as const;
+
+export const STUDY_CONDITIONS: readonly Condition[] = ["A", "B", "C"] as const;
 
 export function isCondition(value: unknown): value is Condition {
   return (
@@ -20,8 +22,8 @@ export function isCondition(value: unknown): value is Condition {
  * balancing here.
  */
 export function pickRandomCondition(): Condition {
-  const index = Math.floor(Math.random() * ALL_CONDITIONS.length);
-  return ALL_CONDITIONS[index];
+  const index = Math.floor(Math.random() * STUDY_CONDITIONS.length);
+  return STUDY_CONDITIONS[index];
 }
 
 /**
@@ -36,6 +38,7 @@ export const CONDITION_LABEL: Record<Condition, string> = {
   A: "positive",
   B: "neutral",
   C: "disconfirmatory",
+  DEV: "developer_test",
 };
 
 export function labelForCondition(condition: Condition): string {
@@ -45,6 +48,11 @@ export function labelForCondition(condition: Condition): string {
 type PromptRef = { promptId: string; version: string };
 
 function readPromptRef(condition: Condition): PromptRef {
+  if (condition === "DEV") {
+    // DEV conditions shouldn't read from standard environment variables,
+    // as their promptId is explicitly provided.
+    return { promptId: "DEV", version: "1" };
+  }
   const idEnv = `OPENAI_${condition}_PROMPT_ID`;
   const versionEnv = `OPENAI_${condition}_PROMPT_VERSION`;
   const promptId = process.env[idEnv];

@@ -114,6 +114,7 @@ async function main() {
       A: 0,
       B: 0,
       C: 0,
+      DEV: 0,
     };
 
     const { labelForCondition } = await import("../lib/study/conditions");

@@ -39,6 +39,8 @@ export async function createInterviewSession({
   instructions,
   partnerModel,
   startIpHash,
+  overridePromptId,
+  overridePromptVersion,
   qualtricsResponseId,
   device,
 }: {
@@ -51,6 +53,8 @@ export async function createInterviewSession({
   instructions?: string | null;
   partnerModel?: string | null;
   startIpHash?: string | null;
+  overridePromptId?: string;
+  overridePromptVersion?: string;
   qualtricsResponseId?: string | null;
   device?: {
     deviceType: string;
@@ -65,7 +69,9 @@ export async function createInterviewSession({
     metadata: participantMetadata,
   });
 
-  const { promptId, version } = promptForCondition(condition);
+  const defaultPrompt = promptForCondition(condition);
+  const promptId = overridePromptId ?? defaultPrompt.promptId;
+  const version = overridePromptVersion ?? defaultPrompt.version;
 
   const { chat, agentSession } = await createAgentChatAndSession({
     chatId,
