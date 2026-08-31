@@ -69,6 +69,9 @@ Feedback must always be positively valenced.
 Do not introduce new interpretations, advice, challenges, or normative judgments.
 Keep feedback concise: no more than 5 sentences.
 Maintain a professional, neutral-warm tone consistent with the institutional interviewer role.`
+  },
+  {
+    label: "Neutral Standard model 4o_mini",
     promptId: "pmpt_69ff798ae14c8194b8c6db5b9ab3c1410d86935734983e03",
     model: "gpt-4o-mini",
     description: `Role and Tone
