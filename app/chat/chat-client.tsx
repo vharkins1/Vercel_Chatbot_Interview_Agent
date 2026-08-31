@@ -194,7 +194,12 @@ export function ChatClient({
           }
         );
         if (!res.ok) {
-          setError("Something went wrong sending that message.");
+          try {
+            const errBody = (await res.json()) as { error?: string; details?: string };
+            setError(errBody.details ? `OpenAI Error: ${errBody.details}` : "Something went wrong sending that message.");
+          } catch {
+            setError("Something went wrong sending that message.");
+          }
           return;
         }
         const body = (await res.json()) as {

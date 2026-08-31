@@ -89,14 +89,12 @@ export async function createInterviewSession({
     qualtricsResponseId: qualtricsResponseId ?? null,
     device: device ?? null,
   });
-
   return { chat, agentSession, participantId: participant.id };
 }
-
 export type ExecuteTurnError =
   | { ok: false; status: 404; error: "no_agent_session" }
   | { ok: false; status: 500; error: "session_missing_prompt" }
-  | { ok: false; status: 500; error: "turn_failed" };
+  | { ok: false; status: 500; error: "turn_failed"; details?: string };
 
 export type ExecuteTurnSuccess = {
   ok: true;
@@ -176,9 +174,9 @@ export async function executeTurn({
     });
   } catch (error) {
     console.error("interview turn failed:", error);
-    return { ok: false, status: 500, error: "turn_failed" };
+    const details = error instanceof Error ? error.message : "Unknown OpenAI error";
+    return { ok: false, status: 500, error: "turn_failed", details };
   }
-
   const assistantText = response.output_text ?? "";
   const assistantMessageId = generateUUID();
 

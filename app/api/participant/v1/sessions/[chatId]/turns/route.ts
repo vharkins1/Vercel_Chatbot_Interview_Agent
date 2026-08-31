@@ -63,7 +63,11 @@ export async function POST(
     ipHash: hashIp(ip),
   });
   if (!result.ok) {
-    return Response.json({ error: result.error }, { status: result.status });
+    const body: { error: string; details?: string } = { error: result.error };
+    if ("details" in result && result.details) {
+      body.details = result.details;
+    }
+    return Response.json(body, { status: result.status });
   }
 
   // The server decides when the interview is over: either the interviewer
