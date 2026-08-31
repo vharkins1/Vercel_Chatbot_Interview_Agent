@@ -61,7 +61,7 @@ async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
             
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Prompt Description</h3>
-              <div className="text-sm whitespace-pre-wrap bg-background p-4 rounded-md border shadow-sm prose prose-sm max-w-none">
+              <div className="text-sm whitespace-pre-wrap bg-background p-4 rounded-md border shadow-sm prose prose-sm dark:prose-invert max-w-none">
                 {promptInfo.description}
               </div>
             </div>
