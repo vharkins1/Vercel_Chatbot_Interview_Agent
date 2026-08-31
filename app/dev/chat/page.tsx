@@ -7,15 +7,32 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const idStr = Array.isArray(params.id) ? params.id[0] : params.id;
-  if (!idStr) return notFound();
+  
+  const customIdRaw = params.customId;
+  const customId = Array.isArray(customIdRaw) ? customIdRaw[0] : customIdRaw;
+  const customVersionRaw = params.customVersion;
+  const customVersion = Array.isArray(customVersionRaw) ? customVersionRaw[0] : customVersionRaw;
 
-  const idx = parseInt(idStr, 10);
-  const promptInfo = DEV_PROMPTS[idx];
+  let promptInfo;
+
+  if (customId) {
+    promptInfo = {
+      label: "Custom Prompt ID",
+      promptId: customId,
+      model: "Unknown (Custom)",
+      description: `Testing custom Prompt ID: ${customId}\nVersion: ${customVersion || 'default'}`,
+    };
+  } else {
+    const idStr = Array.isArray(params.id) ? params.id[0] : params.id;
+    if (!idStr) return notFound();
+
+    const idx = parseInt(idStr, 10);
+    promptInfo = DEV_PROMPTS[idx];
+  }
+
   if (!promptInfo || !promptInfo.promptId) {
     return notFound();
   }
-
   return (
     <div className="flex h-screen w-full overflow-hidden">
       {/* 2/3 Chat UI */}
@@ -24,6 +41,7 @@ async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
           invitationToken="dev-mode"
           sessionEndpoint="/api/dev/sessions"
           devPromptId={promptInfo.promptId}
+          devPromptVersion={customId ? customVersion : undefined}
         />
       </div>
 

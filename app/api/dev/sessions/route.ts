@@ -8,6 +8,7 @@ import { generateUUID } from "@/lib/utils";
 
 const CreateDevSessionSchema = z.object({
   devPromptId: z.string().min(1),
+  devPromptVersion: z.string().optional(),
 });
 
 export async function POST(request: Request) {
@@ -30,7 +31,7 @@ export async function POST(request: Request) {
     partnerAgentId: null,
     participantExternalId,
     condition: "DEV",
-    overridePromptVersion: process.env.OPENAI_A_PROMPT_VERSION ?? "3",
+    overridePromptVersion: parsed.data.devPromptVersion || process.env.OPENAI_A_PROMPT_VERSION || "3",
     title: "Developer Test Session",
     startIpHash: ipHash,
     qualtricsResponseId: "dev-mode",

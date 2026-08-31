@@ -1,6 +1,7 @@
 import { DEV_PROMPTS } from "@/lib/dev/prompts";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function DevDashboardPage() {
   return (
@@ -39,6 +40,38 @@ export default function DevDashboardPage() {
             )}
           </div>
         ))}
+        
+        {/* Custom Prompt Testing Section */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-2 border-dashed rounded-lg bg-muted/20 mt-4 gap-4">
+          <div>
+            <div className="font-medium text-lg">Test Custom Prompt ID</div>
+            <div className="text-sm text-muted-foreground mt-1">
+              Paste your own OpenAI Prompt ID to test new versions instantly.
+            </div>
+          </div>
+          
+          <form action="/dev/chat" method="GET" className="flex items-center gap-2">
+            <Input
+              type="text"
+              name="customId"
+              placeholder="Prompt ID (pmpt_...)"
+              className="w-[180px] bg-background"
+              required
+              pattern="^pmpt_[a-zA-Z0-9]+$"
+              title="Must be a valid OpenAI Prompt ID starting with pmpt_"
+            />
+            <Input
+              type="number"
+              name="customVersion"
+              placeholder="Ver (e.g. 1)"
+              className="w-[110px] bg-background"
+              min="1"
+              defaultValue="1"
+              title="Prompt Version Number"
+            />
+            <Button type="submit">Start Test</Button>
+          </form>
+        </div>
       </div>
     </main>
   );
