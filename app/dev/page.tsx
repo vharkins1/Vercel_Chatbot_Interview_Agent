@@ -1,5 +1,4 @@
 import { DEV_PROMPTS } from "@/lib/dev/prompts";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -32,7 +31,7 @@ export default function DevDashboardPage() {
             </div>
             {prompt.promptId ? (
               <Button asChild>
-                <Link href={`/dev/chat?id=${i}`}>Start Test Chat</Link>
+                <a href={`/dev/chat?id=${i}`}>Start Test Chat</a>
               </Button>
             ) : (
               <Button disabled variant="outline">
