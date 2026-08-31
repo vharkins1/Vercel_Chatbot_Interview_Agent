@@ -20,8 +20,9 @@ export default function DevDashboardPage() {
             <div>
               <div className="font-medium">{prompt.label}</div>
               {prompt.promptId ? (
-                <div className="text-xs text-muted-foreground font-mono mt-1">
-                  ID: {prompt.promptId}
+                <div className="text-xs text-muted-foreground font-mono mt-1 flex gap-4">
+                  <span>ID: {prompt.promptId}</span>
+                  {prompt.version && <span>Version: {prompt.version}</span>}
                 </div>
               ) : (
                 <div className="text-xs text-muted-foreground mt-1 italic">

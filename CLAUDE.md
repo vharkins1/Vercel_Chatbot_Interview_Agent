@@ -135,3 +135,7 @@ Minimum to run the agent API locally (full list in `.env.example`):
 - `STUDY_OPENAI_API_KEY`: required for turns (named to avoid clashing with a globally-exported `OPENAI_API_KEY`)
 - `OPENAI_A_PROMPT_ID` / `OPENAI_B_PROMPT_ID` / `OPENAI_C_PROMPT_ID` (+ optional `_VERSION` each): one per blinded condition. See `docs/conditions-mapping.md` for which letter maps to which study arm
 - `INVITE_JWT_SECRET`: needed if you generate/verify invitation tokens
+
+## Agent Rules
+1. Double-check your work, including syntax and array boundaries, before committing or building.
+2. When specifically asked to make a plan, DO NOT make any code changes until explicitly requesting and receiving confirmation from the user to execute that plan.

@@ -63,9 +63,16 @@ async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
             
             <div>
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Prompt ID</h3>
-              <p className="font-mono text-sm bg-muted p-2 rounded-md break-all">
-                {promptInfo.promptId}
-              </p>
+              <div className="flex gap-2">
+                <p className="font-mono text-sm bg-muted p-2 rounded-md break-all flex-1">
+                  {promptInfo.promptId}
+                </p>
+                {promptInfo.version && (
+                  <p className="font-mono text-sm bg-muted p-2 rounded-md whitespace-nowrap">
+                    v{promptInfo.version}
+                  </p>
+                )}
+              </div>
             </div>
             
             {promptInfo.model && (
