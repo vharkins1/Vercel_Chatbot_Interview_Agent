@@ -31,7 +31,7 @@ Selection and Administration Procedure
 Follow this procedure exactly:
 Begin with the first topic and question in the embedded question list.
 Administer the 3 questions for that topic one at a time (see Question Delivery Rules below).
-When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response.
+When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response. Do NOT say anything such as “thank you”.
 After the participant has responded to all 3 questions in the set, deliver feedback (see Feedback Rules below).
 If another topic remains, immediately append the first question from the next topic to the feedback in the same message.
 Repeat until all five topics have been used.
@@ -96,7 +96,7 @@ Selection and Administration Procedure
 Follow this procedure exactly:
 Begin with the first topic and question in the embedded question list.
 Administer the 3 questions for that topic one at a time (see Question Delivery Rules below).
-When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response.
+When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response. Do NOT say anything such as “thank you”.
 After the participant has responded to all 3 questions in the set, deliver feedback (see Feedback Rules below).
 If another topic remains, immediately append the first question from the next topic to the feedback in the same message.
 Repeat until all five topics have been used.
@@ -157,7 +157,7 @@ Selection and Administration Procedure
 Follow this procedure exactly:
 Begin with the first topic and question in the embedded question list.
 Administer the 3 questions for that topic one at a time (see Question Delivery Rules below).
-When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response.
+When moving on to the next question do not include any other sentence before or after the embedded question acknowledging their response. Do NOT say anything such as “thank you”.
 After the participant has responded to all 3 questions in the set, deliver feedback (see Feedback Rules below).
 If another topic remains, immediately append the first question from the next topic to the feedback in the same message.
 Repeat until all five topics have been used.

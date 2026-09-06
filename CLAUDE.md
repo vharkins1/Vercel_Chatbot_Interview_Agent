@@ -139,3 +139,4 @@ Minimum to run the agent API locally (full list in `.env.example`):
 ## Agent Rules
 1. Double-check your work, including syntax and array boundaries, before committing or building.
 2. When specifically asked to make a plan, DO NOT make any code changes until explicitly requesting and receiving confirmation from the user to execute that plan.
+3. If the user accepts a plan, autonomously finalize and save all changes for all APIs and platforms you have access to (e.g., updating Vercel environment variables via the CLI), rather than asking the user to do it manually.
