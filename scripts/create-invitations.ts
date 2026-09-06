@@ -2,6 +2,7 @@ import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { invitation } from "../lib/db/schema";
+import type { Condition } from "../lib/study/conditions";
 import {
   ALL_CONDITIONS,
   labelForCondition,
