@@ -4,7 +4,8 @@ import postgres from "postgres";
 import { invitation } from "../lib/db/schema";
 import {
   ALL_CONDITIONS,
-  type Condition,
+  labelForCondition,
+  pickRandomCondition,
   isCondition,
 } from "../lib/study/conditions";
 import { generateJti, signInvitation } from "../lib/study/invitations";
@@ -16,6 +17,7 @@ type Args = {
   condition: Condition | "mixed";
   batch: string | null;
   ttlDays: number;
+  multiUse: boolean;
 };
 
 function parseArgs(argv: string[]): Args {
@@ -24,6 +26,7 @@ function parseArgs(argv: string[]): Args {
     condition: "mixed",
     batch: null,
     ttlDays: 30,
+    multiUse: false,
   };
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i];
@@ -47,8 +50,10 @@ function parseArgs(argv: string[]): Args {
         args.batch = value;
         i++;
         break;
+      case "--multi-use":
+        args.multiUse = true;
+        break;
       case "--ttl-days":
-        args.ttlDays = Number.parseInt(value, 10);
         i++;
         break;
       default:
@@ -117,7 +122,7 @@ async function main() {
       DEV: 0,
     };
 
-    const { labelForCondition } = await import("../lib/study/conditions");
+    // labelForCondition is now statically imported
 
     for (const cond of assignment) {
       const jti = generateJti();
@@ -132,6 +137,7 @@ async function main() {
         conditionLabel: labelForCondition(cond),
         expiresAt,
         batchLabel: args.batch,
+        multiUse: args.multiUse,
       });
       tokens.push(token);
       counts[cond]++;

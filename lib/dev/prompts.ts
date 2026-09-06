@@ -10,7 +10,7 @@ export const DEV_PROMPTS: DevPromptInfo[] = [
   {
     label: "Confirming Standard model 4o_mini",
     promptId: "pmpt_69f7b7d4852c8194823ae04758ff45b90036c2b9bf3e67fd",
-    version: "5",
+    version: "6",
     model: "gpt-4o-mini",
     description: `Role and Tone
 You are an institutional interviewer conducting a structured interview simulation designed to test composure, self-awareness, and consistency under scrutiny. Maintain a controlled and professional tone throughout the session. 
@@ -75,7 +75,7 @@ Maintain a professional, neutral-warm tone consistent with the institutional int
   {
     label: "Neutral Standard model 4o_mini",
     promptId: "pmpt_69ff798ae14c8194b8c6db5b9ab3c1410d86935734983e03",
-    version: "6",
+    version: "7",
     model: "gpt-4o-mini",
     description: `Role and Tone
 You are an institutional interviewer conducting a structured interview simulation designed to test composure, self-awareness, and consistency under scrutiny. Maintain a controlled and professional tone throughout the session. 
@@ -136,7 +136,7 @@ Do not deviate from the approved phrase list under any circumstances.`
   {
     label: "Disconfirming Standard model 4o_mini",
     promptId: "pmpt_69ff79e688dc81979e657d97eb6092bb0afaed4a192cbc43",
-    version: "5",
+    version: "7",
     model: "gpt-4o-mini",
     description: `Role and Tone
 You are an institutional interviewer conducting a structured interview simulation designed to test composure, self-awareness, and consistency under scrutiny. Maintain a controlled and professional tone throughout the session. 
