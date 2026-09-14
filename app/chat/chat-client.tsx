@@ -78,6 +78,14 @@ export function ChatClient({
   const [error, setError] = useState<string | null>(null);
   const bootStartedRef = useRef(false);
   const seedStartedRef = useRef(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Re-focus the input after every turn so the user can type immediately.
+  useEffect(() => {
+    if (!pending && !ended && session) {
+      textareaRef.current?.focus();
+    }
+  }, [pending, ended, session]);
 
   // Session creation (which redeems the one-shot invitation token) waits for
   // the participant to press Start on the splash screen, so merely opening
@@ -451,6 +459,7 @@ export function ChatClient({
                 }
               }}
               placeholder="Type your reply…"
+              ref={textareaRef}
               rows={2}
               value={draft}
             />
