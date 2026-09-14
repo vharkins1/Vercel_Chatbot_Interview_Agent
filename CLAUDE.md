@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+Before resuming unfinished work, read `.md/HANDOFF.md`. It is the shared cross-model status and verification ledger; update it before handing work to another model. Follow its authorization/dead-end rule, and never claim an item verified without recording the command or scenario that passed.
+
 ## What this repo is
 
 A research-study interview chatbot, forked from the Vercel AI Chat SDK template but repurposed. The interviewer is an OpenAI Responses-API call against a Stored Prompt (id + version pinned per session). Each `Chat` row is one interview trial. Read `docs/goal.md` and `docs/study-data-model.md` before non-trivial changes; the study design constrains schema and flow decisions that aren't obvious from the code.

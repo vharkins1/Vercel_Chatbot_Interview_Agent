@@ -25,6 +25,7 @@
     "db:create-session-transcript-view": "tsx scripts/create-session-transcript-view.ts",
     "db:export-sessions": "tsx scripts/export-sessions.ts",
     "db:export-transcripts": "tsx scripts/export-transcripts.ts",
+    "db:export-conversation": "tsx scripts/export-conversation.ts",
     "db:export-masterfile": "tsx scripts/export-masterfile.ts",
     "verify:handoff": "tsx scripts/verify-survey-handoff.ts",
     "db:audit": "tsx scripts/audit-data.ts",

@@ -28,7 +28,7 @@ type ChatMessage = {
 // a debug badge. Both are optional — absent in the blinded production path.
 type Session = {
   chatId: string;
-  condition?: "A" | "B" | "C";
+  condition?: "A" | "B" | "C" | "DEV";
   conditionLabel?: string;
   // Present when the server matched an in-progress interview for this
   // participant (same Qualtrics ResponseID) instead of creating a new one —
@@ -56,12 +56,14 @@ export function ChatClient({
   sessionEndpoint = "/api/participant/v1/sessions",
   devPromptId,
   devPromptVersion,
+  onSessionStarted,
 }: {
   invitationToken: string;
   qualtricsResponseId?: string | null;
   sessionEndpoint?: string;
   devPromptId?: string;
   devPromptVersion?: string;
+  onSessionStarted?: (chatId: string) => void;
 }) {
   const [started, setStarted] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -124,11 +126,20 @@ export function ChatClient({
           seedStartedRef.current = true;
         }
         setSession(body);
+        onSessionStarted?.(body.chatId);
       } catch (_) {
         setBootError("Network error. Please reload the page.");
       }
     })();
-  }, [started, invitationToken, qualtricsResponseId, sessionEndpoint, devPromptId, devPromptVersion]);
+  }, [
+    started,
+    invitationToken,
+    qualtricsResponseId,
+    sessionEndpoint,
+    devPromptId,
+    devPromptVersion,
+    onSessionStarted,
+  ]);
 
   // Close out the session and fetch the survey handoff link. On the normal
   // path the turns response already carries both, so this is belt-and-braces;
@@ -195,8 +206,15 @@ export function ChatClient({
         );
         if (!res.ok) {
           try {
-            const errBody = (await res.json()) as { error?: string; details?: string };
-            setError(errBody.details ? `OpenAI Error: ${errBody.details}` : "Something went wrong sending that message.");
+            const errBody = (await res.json()) as {
+              error?: string;
+              details?: string;
+            };
+            setError(
+              errBody.details
+                ? `OpenAI Error: ${errBody.details}`
+                : "Something went wrong sending that message."
+            );
           } catch {
             setError("Something went wrong sending that message.");
           }
