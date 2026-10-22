@@ -4,6 +4,10 @@ import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const participantAppOrigin = process.env.PARTICIPANT_APP_ORIGIN?.replace(
+    /\/+$/,
+    ""
+  );
 
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
@@ -18,10 +22,19 @@ export async function proxy(request: NextRequest) {
   }
 
   if (pathname.startsWith("/api/participant/")) {
+    if (participantAppOrigin) {
+      return Response.json({ error: "participant_api_moved" }, { status: 410 });
+    }
     return NextResponse.next();
   }
 
-  if (pathname === "/chat" || pathname.startsWith("/chat?")) {
+  if (pathname === "/chat") {
+    if (participantAppOrigin) {
+      return NextResponse.redirect(
+        new URL(`${pathname}${request.nextUrl.search}`, participantAppOrigin),
+        307
+      );
+    }
     return NextResponse.next();
   }
 

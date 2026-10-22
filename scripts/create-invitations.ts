@@ -5,9 +5,8 @@ import { invitation } from "../lib/db/schema";
 import type { Condition } from "../lib/study/conditions";
 import {
   ALL_CONDITIONS,
-  labelForCondition,
-  pickRandomCondition,
   isCondition,
+  labelForCondition,
 } from "../lib/study/conditions";
 import { generateJti, signInvitation } from "../lib/study/invitations";
 
@@ -55,6 +54,7 @@ function parseArgs(argv: string[]): Args {
         args.multiUse = true;
         break;
       case "--ttl-days":
+        args.ttlDays = Number.parseInt(value, 10);
         i++;
         break;
       default:

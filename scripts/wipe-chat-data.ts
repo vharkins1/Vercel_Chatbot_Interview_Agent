@@ -12,19 +12,22 @@ async function main() {
   const sql = postgres(url);
   try {
     await sql.begin(async (tx) => {
-      await tx.unsafe(`
-        TRUNCATE TABLE
-          "ChatQuestion", "Message_v2", "AgentSession",
-          "Chat", "Participant", "Invitation"
-        RESTART IDENTITY CASCADE;
-      `);
-      await tx.unsafe(`DELETE FROM "User";`);
+      await tx`DELETE FROM "SurveyAnswer"`;
+      await tx`DELETE FROM "SurveySubmission"`;
+      await tx`DELETE FROM "Question" WHERE "chatId" IS NOT NULL`;
+      await tx`DELETE FROM "ChatLogs"`;
+      await tx`DELETE FROM "AgentSession"`;
+      await tx`DELETE FROM "Invitation"`;
+      await tx`DELETE FROM "Chat"`;
+      await tx`DELETE FROM "Participant"`;
+      await tx`DELETE FROM "User"`;
+      await tx`ALTER SEQUENCE "AgentSession_seq_seq" RESTART WITH 1`;
     });
 
     const after = await sql`
       SELECT
         (SELECT COUNT(*) FROM "Chat")         AS chats,
-        (SELECT COUNT(*) FROM "Message_v2")   AS messages,
+        (SELECT COUNT(*) FROM "ChatLogs")     AS messages,
         (SELECT COUNT(*) FROM "AgentSession") AS agent_sessions,
         (SELECT COUNT(*) FROM "Participant")  AS participants,
         (SELECT COUNT(*) FROM "User")         AS users,

@@ -348,7 +348,7 @@ async function main() {
 
       await tx`DELETE FROM "SurveyAnswer" WHERE "chatId" = ANY(${chatIds})`;
       await tx`DELETE FROM "SurveySubmission" WHERE "chatId" = ANY(${chatIds})`;
-      await tx`DELETE FROM "Message_v2" WHERE "chatId" = ANY(${chatIds})`;
+      await tx`DELETE FROM "ChatLogs" WHERE "chatId" = ANY(${chatIds})`;
       await tx`DELETE FROM "AgentSession" WHERE "partnerAgentId" = ${partnerId}`;
       await tx`DELETE FROM "Chat" WHERE "partnerAgentId" = ${partnerId}`;
       await tx`DELETE FROM "Participant" WHERE "partnerAgentId" = ${partnerId}`;

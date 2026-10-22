@@ -72,7 +72,7 @@ async function main() {
         a."promptVersion"                            AS prompt_version,
         a."totalTokens"                              AS total_tokens,
         (
-          SELECT count(*)::int FROM "Message_v2" m
+          SELECT count(*)::int FROM "ChatLogs" m
           WHERE m."chatId" = a."chatId" AND m.role = 'user'
         )                                            AS interviewee_turns,
         a."createdAt"                                AS created_at,

@@ -56,9 +56,9 @@ async function main() {
         m."createdAt"  AS created_at,
         m."role"       AS role,
         m."parts"      AS parts
-      FROM "Message_v2" m
+      FROM "ChatLogs" m
       JOIN "Chat" c ON c.id = m."chatId"
-      ORDER BY m."chatId", m."createdAt" ASC
+      ORDER BY m."createdAt" DESC, m.id DESC
     `;
 
     const headers = [

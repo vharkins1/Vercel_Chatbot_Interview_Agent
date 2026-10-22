@@ -15,7 +15,7 @@ SELECT
   s."promptId"      AS prompt_id,
   s."promptVersion" AS prompt_version,
   s."totalTokens"   AS total_tokens,
-  (SELECT COUNT(*) FROM "Message_v2" m WHERE m."chatId" = c.id) AS turns,
+  (SELECT COUNT(*) FROM "ChatLogs" m WHERE m."chatId" = c.id) AS turns,
   c.id              AS chat_id
 FROM "AgentSession" s
 JOIN "Chat"         c  ON c.id = s."chatId"

@@ -16,15 +16,31 @@ import {
   formatFollowupLinkForMessage,
 } from "@/lib/study/qualtrics-followup";
 import {
+  getRuntimePrompt,
+  RUNTIME_PROMPT_KEYS,
+} from "@/lib/study/runtime-prompts";
+import {
   completeInterviewSession,
   executeTurn,
 } from "@/lib/study/session-service";
 
 export const maxDuration = 60;
 
-const bodySchema = z.object({
-  text: z.string().min(1).max(8000),
-});
+const bodySchema = z
+  .union([
+    z.discriminatedUnion("kind", [
+      z.object({ kind: z.literal("start") }),
+      z.object({
+        kind: z.literal("message"),
+        text: z.string().min(1).max(8000),
+      }),
+    ]),
+    // Accept the pre-deploy browser payload during a rolling Vercel release.
+    z.object({ text: z.string().min(1).max(8000) }),
+  ])
+  .transform((body) =>
+    "kind" in body ? body : { kind: "message" as const, text: body.text }
+  );
 
 export async function POST(
   request: Request,
@@ -57,10 +73,31 @@ export async function POST(
 
   const ip = getRequestIp(request);
 
+  let retryPersistedStart = false;
+  if (parsed.kind === "start") {
+    const [userTurns, assistantTurns] = await Promise.all([
+      countMessagesByChatId({ id: chatId, role: "user" }),
+      countMessagesByChatId({ id: chatId, role: "assistant" }),
+    ]);
+    retryPersistedStart = userTurns === 1 && assistantTurns === 0;
+    if (assistantTurns > 0 || userTurns > 1) {
+      return Response.json(
+        { error: "interview_already_started" },
+        { status: 409 }
+      );
+    }
+  }
+
+  const text =
+    parsed.kind === "start"
+      ? await getRuntimePrompt(RUNTIME_PROMPT_KEYS.interviewStart)
+      : parsed.text;
+
   const result = await executeTurn({
     chatId,
-    text: parsed.text,
+    text,
     ipHash: hashIp(ip),
+    persistUserMessage: !retryPersistedStart,
   });
   if (!result.ok) {
     const body: { error: string; details?: string } = { error: result.error };
@@ -80,7 +117,8 @@ export async function POST(
     role: "assistant",
   });
   const ended =
-    looksLikeEnd(result.assistantText) || llmTurns >= MAX_PARTICIPANT_TURNS;
+    (await looksLikeEnd(result.assistantText)) ||
+    llmTurns >= MAX_PARTICIPANT_TURNS;
 
   // Once the interview has run long enough that it should already have
   // reached the closing question, the UI reveals a subtle fallback link so a
@@ -100,8 +138,8 @@ export async function POST(
       chatId,
       seq: completion?.agentSession?.seq ?? null,
       completionCode: completion?.agentSession?.completionCode ?? null,
-      qualtricsResponseId:
-        completion?.agentSession?.qualtricsResponseId ?? null,
+      studyId: completion?.agentSession?.studyId ?? null,
+      id: completion?.agentSession?.sonaId ?? null,
     });
 
     if (followupUrl) {

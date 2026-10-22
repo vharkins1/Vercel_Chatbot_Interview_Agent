@@ -41,7 +41,8 @@ export async function createInterviewSession({
   startIpHash,
   overridePromptId,
   overridePromptVersion,
-  qualtricsResponseId,
+  studyId,
+  sonaId,
   device,
 }: {
   chatId: string;
@@ -55,7 +56,8 @@ export async function createInterviewSession({
   startIpHash?: string | null;
   overridePromptId?: string;
   overridePromptVersion?: string;
-  qualtricsResponseId?: string | null;
+  studyId?: string | null;
+  sonaId?: string | null;
   device?: {
     deviceType: string;
     browser: string;
@@ -86,7 +88,8 @@ export async function createInterviewSession({
     conditionLabel: labelForCondition(condition),
     partnerModel: partnerModel ?? null,
     startIpHash: startIpHash ?? null,
-    qualtricsResponseId: qualtricsResponseId ?? null,
+    studyId: studyId ?? null,
+    sonaId: sonaId ?? null,
     device: device ?? null,
   });
   return { chat, agentSession, participantId: participant.id };
@@ -115,12 +118,14 @@ export async function executeTurn({
   userMessageId,
   partnerModel,
   ipHash,
+  persistUserMessage = true,
 }: {
   chatId: string;
   text: string;
   userMessageId?: string;
   partnerModel?: string | null;
   ipHash?: string | null;
+  persistUserMessage?: boolean;
 }): Promise<ExecuteTurnSuccess | ExecuteTurnError> {
   const session = await getAgentSessionByChatId({ chatId });
   if (!session) {
@@ -131,27 +136,29 @@ export async function executeTurn({
   }
 
   // Stamp the partner-declared model on every user-turn row so per-turn
-  // history is preserved (option C: Message_v2 audit trail +
-  // AgentSession.partnerModel "latest known" cache, updated below).
+  // history is preserved (ChatLogs audit trail plus AgentSession.partnerModel
+  // as the "latest known" cache, updated below).
   const effectivePartnerModel = partnerModel ?? session.partnerModel ?? null;
 
-  await saveMessages({
-    messages: [
-      {
-        chatId,
-        id: userMessageId ?? generateUUID(),
-        role: "user",
-        parts: [{ type: "text", text }],
-        attachments: [],
-        createdAt: new Date(),
-        partnerModel: effectivePartnerModel,
-        ipHash: ipHash ?? null,
-      },
-    ],
-  });
+  if (persistUserMessage) {
+    await saveMessages({
+      messages: [
+        {
+          chatId,
+          id: userMessageId ?? generateUUID(),
+          role: "user",
+          parts: [{ type: "text", text }],
+          attachments: [],
+          createdAt: new Date(),
+          partnerModel: effectivePartnerModel,
+          ipHash: ipHash ?? null,
+        },
+      ],
+    });
+  }
 
   const selectedQuestions = await ensureChatQuestions(chatId);
-  const questionsBlock = formatQuestionsForPrompt(selectedQuestions);
+  const questionsBlock = await formatQuestionsForPrompt(selectedQuestions);
 
   let response: Awaited<
     ReturnType<ReturnType<typeof getOpenAIClient>["responses"]["create"]>
@@ -174,7 +181,8 @@ export async function executeTurn({
     });
   } catch (error) {
     console.error("interview turn failed:", error);
-    const details = error instanceof Error ? error.message : "Unknown OpenAI error";
+    const details =
+      error instanceof Error ? error.message : "Unknown OpenAI error";
     return { ok: false, status: 500, error: "turn_failed", details };
   }
   const assistantText = response.output_text ?? "";

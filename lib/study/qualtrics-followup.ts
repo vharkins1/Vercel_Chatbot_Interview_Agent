@@ -14,24 +14,24 @@ function followupBase(): string | null {
 }
 
 /**
- * Carry the study join keys onto the Qualtrics follow-up link so the human's
- * browser-side survey captures them as embedded data (Qualtrics auto-captures
- * matching URL query params when the fields are declared in the Survey Flow —
- * declare completion_code, chat_id and participant_seq there or Qualtrics
- * silently drops them; scripts/ensure-survey-fields.ts automates the
- * declaration). Mirrors the agent path, which injects the same three keys at
- * submit (see app/api/agent/v1/.../survey/route.ts).
+ * Carry the study join keys and SONA participant id onto the Qualtrics
+ * follow-up link. Qualtrics captures matching URL query params only when the
+ * fields are declared in the Survey Flow; scripts/ensure-survey-fields.ts
+ * declares them. The agent path independently injects its applicable join keys
+ * at submit time (see app/api/agent/v1/.../survey/route.ts).
  */
 export function buildFollowupUrl({
   chatId,
   seq,
   completionCode,
-  qualtricsResponseId,
+  studyId,
+  id,
 }: {
   chatId: string;
   seq: number | null;
   completionCode: string | null;
-  qualtricsResponseId?: string | null;
+  studyId?: string | null;
+  id?: string | null;
 }): string | null {
   const base = followupBase();
   if (!base) {
@@ -39,6 +39,9 @@ export function buildFollowupUrl({
   }
   try {
     const url = new URL(base);
+    if (url.protocol !== "https:") {
+      return null;
+    }
     url.searchParams.set("chat_id", chatId);
     if (seq != null) {
       url.searchParams.set("participant_seq", String(seq));
@@ -46,16 +49,16 @@ export function buildFollowupUrl({
     if (completionCode) {
       url.searchParams.set("completion_code", completionCode);
     }
-    // Carried through from the pre-survey so pre, interview and post can be
-    // joined on one key. Must also be declared as Embedded Data on the
-    // post-survey's flow (`rid`) or Qualtrics drops it silently.
-    if (qualtricsResponseId) {
-      url.searchParams.set("StudyID", qualtricsResponseId);
+    // Carry both identifiers from the pre-survey into the post-survey.
+    if (studyId) {
+      url.searchParams.set("StudyID", studyId);
+    }
+    if (id) {
+      url.searchParams.set("id", id);
     }
     return url.toString();
   } catch {
-    // Non-absolute or malformed URL: leave it untouched rather than drop it.
-    return base;
+    return null;
   }
 }
 

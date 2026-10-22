@@ -1,20 +1,23 @@
-import { DEV_PROMPTS } from "@/lib/dev/prompts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getDevPrompts } from "@/lib/dev/prompts";
 
 export default function DevDashboardPage() {
+  const devPrompts = getDevPrompts();
+
   return (
     <main className="mx-auto w-full max-w-3xl px-6 py-16">
       <h1 className="font-semibold text-3xl mb-8">Developer Dashboard</h1>
       <p className="text-muted-foreground mb-8">
-        Select a prompt condition to launch a test chatbot session. Links without a configured Prompt ID are disabled.
+        Select a prompt condition to launch a test chatbot session. Links
+        without a configured Prompt ID are disabled.
       </p>
 
       <div className="flex flex-col gap-4">
-        {DEV_PROMPTS.map((prompt, i) => (
+        {devPrompts.map((prompt, i) => (
           <div
-            key={i}
             className="flex items-center justify-between p-4 border rounded-lg bg-card"
+            key={prompt.label}
           >
             <div>
               <div className="font-medium">{prompt.label}</div>
@@ -40,7 +43,7 @@ export default function DevDashboardPage() {
             )}
           </div>
         ))}
-        
+
         {/* Custom Prompt Testing Section */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border-2 border-dashed rounded-lg bg-muted/20 mt-4 gap-4">
           <div>
@@ -49,25 +52,29 @@ export default function DevDashboardPage() {
               Paste your own OpenAI Prompt ID to test new versions instantly.
             </div>
           </div>
-          
-          <form action="/dev/chat" method="GET" className="flex items-center gap-2">
+
+          <form
+            action="/dev/chat"
+            className="flex items-center gap-2"
+            method="GET"
+          >
             <Input
-              type="text"
-              name="customId"
-              placeholder="Prompt ID (pmpt_...)"
               className="w-[180px] bg-background"
-              required
+              name="customId"
               pattern="^pmpt_[a-zA-Z0-9]+$"
+              placeholder="Prompt ID (pmpt_...)"
+              required
               title="Must be a valid OpenAI Prompt ID starting with pmpt_"
+              type="text"
             />
             <Input
-              type="number"
+              className="w-[110px] bg-background"
+              defaultValue="1"
+              min="1"
               name="customVersion"
               placeholder="Ver (e.g. 1)"
-              className="w-[110px] bg-background"
-              min="1"
-              defaultValue="1"
               title="Prompt Version Number"
+              type="number"
             />
             <Button type="submit">Start Test</Button>
           </form>

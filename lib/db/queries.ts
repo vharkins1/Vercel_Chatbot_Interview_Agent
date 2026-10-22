@@ -10,10 +10,10 @@ import {
   agentSession,
   type Chat,
   chat,
-  type DBMessage,
+  chatLog,
+  type DBChatLog,
   type Invitation,
   invitation,
-  message,
   type Participant,
   type PartnerAgent,
   participant,
@@ -119,10 +119,10 @@ export async function hasChatWithStartIpHash({
   }
 }
 
-export async function saveMessages({ messages }: { messages: DBMessage[] }) {
+export async function saveMessages({ messages }: { messages: DBChatLog[] }) {
   try {
-    return await db.insert(message).values(messages);
-  } catch (_error) {
+    return await db.insert(chatLog).values(messages);
+  } catch {
     throw new ChatbotError("bad_request:database", "Failed to save messages");
   }
 }
@@ -131,10 +131,10 @@ export async function getMessagesByChatId({ id }: { id: string }) {
   try {
     return await db
       .select()
-      .from(message)
-      .where(eq(message.chatId, id))
-      .orderBy(asc(message.createdAt));
-  } catch (_error) {
+      .from(chatLog)
+      .where(eq(chatLog.chatId, id))
+      .orderBy(asc(chatLog.createdAt));
+  } catch {
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get messages by chat id"
@@ -152,10 +152,10 @@ export async function countMessagesByChatId({
   try {
     const [row] = await db
       .select({ n: count() })
-      .from(message)
-      .where(and(eq(message.chatId, id), eq(message.role, role)));
+      .from(chatLog)
+      .where(and(eq(chatLog.chatId, id), eq(chatLog.role, role)));
     return row?.n ?? 0;
-  } catch (_error) {
+  } catch {
     throw new ChatbotError(
       "bad_request:database",
       `Failed to count ${role} messages by chat id`
@@ -177,10 +177,10 @@ export async function updateMessageText({
 }) {
   try {
     return await db
-      .update(message)
+      .update(chatLog)
       .set({ parts: [{ type: "text", text }] })
-      .where(eq(message.id, id));
-  } catch (_error) {
+      .where(eq(chatLog.id, id));
+  } catch {
     throw new ChatbotError(
       "bad_request:database",
       "Failed to update message text"
@@ -245,6 +245,7 @@ export async function updateAgentSession({
   interviewerModel?: string;
   partnerModel?: string;
   completionCode?: string;
+  sonaId?: string;
 }) {
   try {
     return await db
@@ -492,7 +493,8 @@ export async function createAgentChatAndSession({
   conditionLabel,
   partnerModel,
   startIpHash,
-  qualtricsResponseId,
+  studyId,
+  sonaId,
   device,
 }: {
   chatId: string;
@@ -507,7 +509,8 @@ export async function createAgentChatAndSession({
   conditionLabel?: string | null;
   partnerModel?: string | null;
   startIpHash?: string | null;
-  qualtricsResponseId?: string | null;
+  studyId?: string | null;
+  sonaId?: string | null;
   device?: {
     deviceType: string;
     browser: string;
@@ -544,7 +547,8 @@ export async function createAgentChatAndSession({
           condition: condition ?? null,
           conditionLabel: conditionLabel ?? null,
           partnerModel: partnerModel ?? null,
-          qualtricsResponseId: qualtricsResponseId ?? null,
+          studyId: studyId ?? null,
+          sonaId: sonaId ?? null,
           deviceType: device?.deviceType ?? null,
           browser: device?.browser ?? null,
           os: device?.os ?? null,
@@ -622,15 +626,15 @@ export async function recordInvitationUse({
 }
 
 /**
- * Look up an existing human interview by the Qualtrics ResponseID it was
- * started with. Backs idempotent session creation: with a reusable entry link,
+ * Look up an existing human interview by the Qualtrics StudyID it was started
+ * with. Backs idempotent session creation: with a reusable entry link,
  * a reload or a browser back-button would otherwise open a second interview
  * under the same respondent and split their data across two transcripts.
  */
-export async function getHumanSessionByQualtricsResponseId({
-  qualtricsResponseId,
+export async function getHumanSessionByStudyId({
+  studyId,
 }: {
-  qualtricsResponseId: string;
+  studyId: string;
 }): Promise<AgentSession | undefined> {
   try {
     const [row] = await db
@@ -638,17 +642,17 @@ export async function getHumanSessionByQualtricsResponseId({
       .from(agentSession)
       .where(
         and(
-          eq(agentSession.qualtricsResponseId, qualtricsResponseId),
+          eq(agentSession.studyId, studyId),
           isNull(agentSession.partnerAgentId)
         )
       )
       .orderBy(asc(agentSession.createdAt))
       .limit(1);
     return row;
-  } catch (_error) {
+  } catch {
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to look up session by Qualtrics response id"
+      "Failed to look up session by StudyID"
     );
   }
 }

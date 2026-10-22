@@ -40,7 +40,8 @@ export async function POST(
     chatId,
     seq: result.agentSession?.seq ?? null,
     completionCode: result.agentSession?.completionCode ?? null,
-    qualtricsResponseId: result.agentSession?.qualtricsResponseId ?? null,
+    studyId: result.agentSession?.studyId ?? null,
+    id: result.agentSession?.sonaId ?? null,
   });
 
   return Response.json({ ok: true, followupUrl });

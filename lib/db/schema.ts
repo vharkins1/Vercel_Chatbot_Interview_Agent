@@ -1,17 +1,32 @@
-import type { InferSelectModel } from "drizzle-orm";
+import { type InferSelectModel, sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
+  check,
   index,
   integer,
   json,
+  pgSchema,
   pgTable,
-  primaryKey,
   text,
   timestamp,
   uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+
+const privateSchema = pgSchema("private");
+
+export const runtimePrompt = privateSchema.table("RuntimePrompt", {
+  key: text("key").primaryKey().notNull(),
+  content: text("content").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: timestamp("updatedAt", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export type RuntimePrompt = InferSelectModel<typeof runtimePrompt>;
 
 export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -52,8 +67,8 @@ export const chat = pgTable(
 
 export type Chat = InferSelectModel<typeof chat>;
 
-export const message = pgTable(
-  "Message_v2",
+export const chatLog = pgTable(
+  "ChatLogs",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
     chatId: uuid("chatId")
@@ -67,11 +82,14 @@ export const message = pgTable(
     ipHash: text("ipHash"),
   },
   (table) => ({
-    ipHashIdx: index("Message_v2_ipHash_idx").on(table.ipHash),
+    ipHashIdx: index("ChatLogs_ipHash_idx").on(table.ipHash),
+    createdAtDescIdx: index("ChatLogs_createdAt_desc_idx").on(
+      table.createdAt.desc()
+    ),
   })
 );
 
-export type DBMessage = InferSelectModel<typeof message>;
+export type DBChatLog = InferSelectModel<typeof chatLog>;
 
 // ── Agent ───────────────────────────────────────────────────────
 
@@ -106,11 +124,14 @@ export const agentSession = pgTable(
     partnerAgentId: uuid("partnerAgentId").references(() => partnerAgent.id),
     participantId: uuid("participantId").references(() => participant.id),
     completionCode: text("completionCode"),
-    // Qualtrics ResponseID of the PRE-interview survey, handed to us as the
-    // `rid` query param on the entry link. This is the join key across all
-    // three artifacts: pre-survey response ↔ transcript ↔ post-survey response.
-    // Null for agent sessions and for any human who reached /chat without one.
-    qualtricsResponseId: text("qualtricsResponseId"),
+    // Qualtrics StudyID of the PRE-interview survey. This is the join key
+    // across pre-survey ↔ transcript ↔ post-survey. Null for agent sessions
+    // and for humans who reached /chat without one.
+    studyId: text("StudyID"),
+    // SONA participant id carried from recruitment through both Qualtrics
+    // surveys. Kept separate from StudyID because it identifies the person for
+    // SONA credit rather than a specific pre-survey response.
+    sonaId: text("sonaId"),
     // Device/browser the participant took the interview on, derived server-side
     // from the User-Agent at session creation (lib/study/device.ts). Kept as
     // dedicated columns rather than JSONB so device can be a grouping variable
@@ -131,8 +152,9 @@ export const agentSession = pgTable(
     completionCodeIdx: uniqueIndex("AgentSession_completionCode_idx").on(
       table.completionCode
     ),
-    qualtricsResponseIdx: index("AgentSession_qualtricsResponseId_idx").on(
-      table.qualtricsResponseId
+    studyIdIdx: index("AgentSession_StudyID_idx").on(table.studyId),
+    createdAtDescIdx: index("AgentSession_createdAt_desc_idx").on(
+      table.createdAt.desc()
     ),
   })
 );
@@ -248,7 +270,7 @@ export const invitation = pgTable(
     // Per-row reusability. One-shot invitations (the original recruitment
     // model) stay false and are burned by redeemInvitation. The Qualtrics
     // entry link is true: one URL serves every participant, so identity comes
-    // from the Qualtrics ResponseID instead of from token uniqueness.
+    // from the Qualtrics StudyID instead of from token uniqueness.
     multiUse: boolean("multiUse").notNull().default(false),
     useCount: integer("useCount").notNull().default(0),
   },
@@ -262,59 +284,66 @@ export const invitation = pgTable(
 
 export type Invitation = InferSelectModel<typeof invitation>;
 
-// ── Interview question bank ─────────────────────────────────────
+// ── Interview question bank + per-chat selections ──────────────
 
-export const topic = pgTable("Topic", {
-  id: text("id").primaryKey().notNull(),
-  name: text("name").notNull(),
-  displayOrder: integer("displayOrder"),
-});
-
-export type Topic = InferSelectModel<typeof topic>;
-
+/**
+ * One physical table serves two roles:
+ * - bank rows: `chatId` and ordering fields are null;
+ * - selected rows: `chatId`, `sourceQuestionId`, and ordering fields are set.
+ *
+ * Selected rows snapshot topic/text so historical interviews remain stable if
+ * a bank question is later edited or deactivated.
+ */
 export const question = pgTable(
   "Question",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
-    topicId: text("topicId")
-      .notNull()
-      .references(() => topic.id),
+    chatId: uuid("chatId").references(() => chat.id, { onDelete: "cascade" }),
+    sourceQuestionId: uuid("sourceQuestionId").references(
+      (): AnyPgColumn => question.id
+    ),
+    topicId: text("topicId").notNull(),
+    topicName: text("topicName").notNull(),
+    topicDisplayOrder: integer("topicDisplayOrder"),
     text: text("text").notNull(),
     isActive: boolean("isActive").notNull().default(true),
+    topicOrder: integer("topicOrder"),
+    questionOrder: integer("questionOrder"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
   (table) => ({
-    topicIdx: index("Question_topicId_idx").on(table.topicId),
-    topicTextUq: uniqueIndex("Question_topicId_text_uq").on(
-      table.topicId,
-      table.text
+    chatIdx: index("Question_chatId_idx").on(table.chatId),
+    sourceIdx: index("Question_sourceQuestionId_idx").on(
+      table.sourceQuestionId
+    ),
+    bankTopicIdx: index("Question_bank_topic_idx")
+      .on(table.topicDisplayOrder, table.topicId)
+      .where(sql`${table.chatId} IS NULL`),
+    bankTopicTextUq: uniqueIndex("Question_bank_topic_text_uq")
+      .on(table.topicId, table.text)
+      .where(sql`${table.chatId} IS NULL`),
+    chatSourceUq: uniqueIndex("Question_chat_source_uq")
+      .on(table.chatId, table.sourceQuestionId)
+      .where(sql`${table.chatId} IS NOT NULL`),
+    rowKindCheck: check(
+      "Question_row_kind_chk",
+      sql`(
+        (
+          ${table.chatId} IS NULL
+          AND ${table.sourceQuestionId} IS NULL
+          AND ${table.topicOrder} IS NULL
+          AND ${table.questionOrder} IS NULL
+        )
+        OR
+        (
+          ${table.chatId} IS NOT NULL
+          AND ${table.sourceQuestionId} IS NOT NULL
+          AND ${table.topicOrder} IS NOT NULL
+          AND ${table.questionOrder} IS NOT NULL
+        )
+      )`
     ),
   })
 );
 
 export type Question = InferSelectModel<typeof question>;
-
-export const chatQuestion = pgTable(
-  "ChatQuestion",
-  {
-    chatId: uuid("chatId")
-      .notNull()
-      .references(() => chat.id, { onDelete: "cascade" }),
-    questionId: uuid("questionId")
-      .notNull()
-      .references(() => question.id),
-    topicId: text("topicId")
-      .notNull()
-      .references(() => topic.id),
-    topicOrder: integer("topicOrder").notNull(),
-    questionOrder: integer("questionOrder").notNull(),
-    questionTextSnapshot: text("questionTextSnapshot").notNull(),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.chatId, table.questionId] }),
-    chatIdx: index("ChatQuestion_chatId_idx").on(table.chatId),
-    topicIdx: index("ChatQuestion_topicId_idx").on(table.topicId),
-  })
-);
-
-export type ChatQuestion = InferSelectModel<typeof chatQuestion>;

@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { DevChatShell } from "@/app/dev/chat/dev-chat-shell";
-import { DEV_PROMPTS, type DevPromptInfo } from "@/lib/dev/prompts";
+import { type DevPromptInfo, getDevPrompts } from "@/lib/dev/prompts";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
+  const devPrompts = getDevPrompts();
 
   const customIdRaw = params.customId;
   const customId = Array.isArray(customIdRaw) ? customIdRaw[0] : customIdRaw;
@@ -31,7 +32,7 @@ async function DevChatBoot({ searchParams }: { searchParams: SearchParams }) {
     }
 
     const idx = Number.parseInt(idStr, 10);
-    promptInfo = DEV_PROMPTS[idx];
+    promptInfo = devPrompts[idx];
   }
 
   if (!promptInfo || !promptInfo.promptId) {

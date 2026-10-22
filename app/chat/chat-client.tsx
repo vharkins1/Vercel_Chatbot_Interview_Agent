@@ -30,15 +30,14 @@ type Session = {
   chatId: string;
   condition?: "A" | "B" | "C" | "DEV";
   conditionLabel?: string;
-  // Present when the server matched an in-progress interview for this
-  // participant (same Qualtrics ResponseID) instead of creating a new one —
-  // a reload or back-button on the reusable entry link.
+  // Present when the server matched an in-progress interview for the same
+  // StudyID instead of creating a new one — a reload or back-button on the
+  // reusable entry link.
   resumed?: boolean;
   messages?: Array<{ id: string; role: "user" | "assistant"; text: string }>;
+  completed?: boolean;
+  followupUrl?: string | null;
 };
-
-const INTERVIEW_START_PROMPT =
-  "Please start the interview by greeting the candidate and asking the first question.";
 
 const ERROR_MESSAGES: Record<string, string> = {
   invalid_invitation: "This invitation link is invalid.",
@@ -52,14 +51,16 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export function ChatClient({
   invitationToken,
-  qualtricsResponseId,
+  studyId,
+  id,
   sessionEndpoint = "/api/participant/v1/sessions",
   devPromptId,
   devPromptVersion,
   onSessionStarted,
 }: {
   invitationToken: string;
-  qualtricsResponseId?: string | null;
+  studyId?: string | null;
+  id?: string | null;
   sessionEndpoint?: string;
   devPromptId?: string;
   devPromptVersion?: string;
@@ -102,7 +103,8 @@ export function ChatClient({
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             invitationToken,
-            ...(qualtricsResponseId ? { qualtricsResponseId } : {}),
+            ...(studyId ? { studyId } : {}),
+            ...(id ? { id } : {}),
             ...(devPromptId ? { devPromptId } : {}),
             ...(devPromptVersion ? { devPromptVersion } : {}),
           }),
@@ -126,12 +128,13 @@ export function ChatClient({
         // persisted like any other user message, so drop it here — it is an
         // instruction to the interviewer, not something the participant wrote.
         if (body.resumed && body.messages?.length) {
-          setMessages(
-            body.messages.filter(
-              (m) => !(m.role === "user" && m.text === INTERVIEW_START_PROMPT)
-            )
-          );
+          setMessages(body.messages);
           seedStartedRef.current = true;
+        }
+        if (body.completed) {
+          seedStartedRef.current = true;
+          setEnded(true);
+          setFollowupUrl(body.followupUrl ?? null);
         }
         setSession(body);
         onSessionStarted?.(body.chatId);
@@ -142,7 +145,8 @@ export function ChatClient({
   }, [
     started,
     invitationToken,
-    qualtricsResponseId,
+    studyId,
+    id,
     sessionEndpoint,
     devPromptId,
     devPromptVersion,
@@ -189,7 +193,10 @@ export function ChatClient({
   }, [completeSession, followupUrl]);
 
   const sendTurn = useCallback(
-    async (text: string, options?: { hideUserMessage?: boolean }) => {
+    async (
+      text: string,
+      options?: { hideUserMessage?: boolean; startInterview?: boolean }
+    ) => {
       if (!session) {
         return;
       }
@@ -209,7 +216,11 @@ export function ChatClient({
           {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify(
+              options?.startInterview
+                ? { kind: "start" }
+                : { kind: "message", text }
+            ),
           }
         );
         if (!res.ok) {
@@ -270,7 +281,7 @@ export function ChatClient({
       return;
     }
     seedStartedRef.current = true;
-    sendTurn(INTERVIEW_START_PROMPT, { hideUserMessage: true });
+    sendTurn("", { hideUserMessage: true, startInterview: true });
   }, [session, sendTurn]);
 
   const handleSubmit = useCallback(async () => {

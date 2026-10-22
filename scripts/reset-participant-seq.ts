@@ -50,8 +50,8 @@ async function main() {
       if (chatIds.length > 0) {
         await tx`DELETE FROM "SurveyAnswer" WHERE "chatId" = ANY(${chatIds})`;
         await tx`DELETE FROM "SurveySubmission" WHERE "chatId" = ANY(${chatIds})`;
-        await tx`DELETE FROM "Message_v2" WHERE "chatId" = ANY(${chatIds})`;
-        await tx`DELETE FROM "ChatQuestion" WHERE "chatId" = ANY(${chatIds})`;
+        await tx`DELETE FROM "ChatLogs" WHERE "chatId" = ANY(${chatIds})`;
+        await tx`DELETE FROM "Question" WHERE "chatId" = ANY(${chatIds})`;
         await tx`DELETE FROM "AgentSession" WHERE "chatId" = ANY(${chatIds})`;
         await tx`DELETE FROM "Chat" WHERE id = ANY(${chatIds})`;
 

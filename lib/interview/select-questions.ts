@@ -1,9 +1,12 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { chatQuestion, question, topic } from "@/lib/db/schema";
-import { CLOSING_QUESTION_TEXT } from "@/lib/study/interview-end";
+import { question } from "@/lib/db/schema";
+import {
+  getRuntimePrompt,
+  RUNTIME_PROMPT_KEYS,
+} from "@/lib/study/runtime-prompts";
 
 type TxArg = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | TxArg;
@@ -35,19 +38,33 @@ async function loadBank(executor: Executor): Promise<
     questions: Array<{ id: string; text: string }>;
   }>
 > {
-  const topics = await executor.select().from(topic);
-  const questions = await executor
+  const rows = await executor
     .select()
     .from(question)
-    .where(eq(question.isActive, true));
+    .where(and(eq(question.isActive, true), isNull(question.chatId)))
+    .orderBy(asc(question.topicDisplayOrder), asc(question.topicId));
 
-  return topics.map((t) => ({
-    topicId: t.id,
-    topicName: t.name,
-    questions: questions
-      .filter((q) => q.topicId === t.id)
-      .map((q) => ({ id: q.id, text: q.text })),
-  }));
+  const topics = new Map<
+    string,
+    {
+      topicId: string;
+      topicName: string;
+      questions: Array<{ id: string; text: string }>;
+    }
+  >();
+  for (const row of rows) {
+    const existing = topics.get(row.topicId);
+    if (existing) {
+      existing.questions.push({ id: row.id, text: row.text });
+      continue;
+    }
+    topics.set(row.topicId, {
+      topicId: row.topicId,
+      topicName: row.topicName,
+      questions: [{ id: row.id, text: row.text }],
+    });
+  }
+  return Array.from(topics.values());
 }
 
 export async function selectQuestionsForChat(
@@ -87,15 +104,16 @@ export async function selectQuestionsForChat(
   });
 
   await executor
-    .insert(chatQuestion)
+    .insert(question)
     .values(
-      selected.map((s) => ({
+      selected.map((selectedQuestion) => ({
         chatId,
-        questionId: s.questionId,
-        topicId: s.topicId,
-        topicOrder: s.topicOrder,
-        questionOrder: s.questionOrder,
-        questionTextSnapshot: s.text,
+        sourceQuestionId: selectedQuestion.questionId,
+        topicId: selectedQuestion.topicId,
+        topicName: selectedQuestion.topicName,
+        text: selectedQuestion.text,
+        topicOrder: selectedQuestion.topicOrder,
+        questionOrder: selectedQuestion.questionOrder,
       }))
     )
     .onConflictDoNothing();
@@ -108,18 +126,34 @@ export async function getChatQuestions(
 ): Promise<SelectedQuestion[]> {
   const rows = await db
     .select({
-      questionId: chatQuestion.questionId,
-      topicId: chatQuestion.topicId,
-      topicName: topic.name,
-      text: chatQuestion.questionTextSnapshot,
-      topicOrder: chatQuestion.topicOrder,
-      questionOrder: chatQuestion.questionOrder,
+      questionId: question.sourceQuestionId,
+      topicId: question.topicId,
+      topicName: question.topicName,
+      text: question.text,
+      topicOrder: question.topicOrder,
+      questionOrder: question.questionOrder,
     })
-    .from(chatQuestion)
-    .innerJoin(topic, eq(topic.id, chatQuestion.topicId))
-    .where(eq(chatQuestion.chatId, chatId))
-    .orderBy(asc(chatQuestion.topicOrder), asc(chatQuestion.questionOrder));
-  return rows;
+    .from(question)
+    .where(eq(question.chatId, chatId))
+    .orderBy(asc(question.topicOrder), asc(question.questionOrder));
+
+  return rows.map((row) => {
+    if (
+      !row.questionId ||
+      row.topicOrder === null ||
+      row.questionOrder === null
+    ) {
+      throw new Error(`Malformed selected question row for chat ${chatId}.`);
+    }
+    return {
+      questionId: row.questionId,
+      topicId: row.topicId,
+      topicName: row.topicName,
+      text: row.text,
+      topicOrder: row.topicOrder,
+      questionOrder: row.questionOrder,
+    };
+  });
 }
 
 export async function ensureChatQuestions(
@@ -138,15 +172,19 @@ export async function ensureChatQuestions(
 // the interviewer must emit it verbatim and stop. The participant-facing
 // survey URL is appended to that message server-side — the interviewer must
 // not invent one.
-const CLOSING_BLOCK = [
-  "FINAL QUESTION (16) — CLOSING",
-  "Ask this last, after every topic above is covered, as its own final message.",
-  "Say it verbatim and end the message there. Do not add a URL: the survey link",
-  "is appended automatically after your message is sent.",
-  `1. ${CLOSING_QUESTION_TEXT}`,
-].join("\n");
-
-export function formatQuestionsForPrompt(rows: SelectedQuestion[]): string {
+export async function formatQuestionsForPrompt(
+  rows: SelectedQuestion[]
+): Promise<string> {
+  const closingQuestion = await getRuntimePrompt(
+    RUNTIME_PROMPT_KEYS.closingQuestion
+  );
+  const closingBlock = [
+    "FINAL QUESTION (16) — CLOSING",
+    "Ask this last, after every topic above is covered, as its own final message.",
+    "Say it verbatim and end the message there. Do not add a URL: the survey link",
+    "is appended automatically after your message is sent.",
+    `1. ${closingQuestion}`,
+  ].join("\n");
   const byTopic = new Map<number, SelectedQuestion[]>();
   for (const r of rows) {
     const list = byTopic.get(r.topicOrder) ?? [];
@@ -164,6 +202,6 @@ export function formatQuestionsForPrompt(rows: SelectedQuestion[]): string {
     const lines = items.map((q, i) => `${i + 1}. ${q.text}`);
     blocks.push([header, ...lines].join("\n"));
   }
-  blocks.push(CLOSING_BLOCK);
+  blocks.push(closingBlock);
   return blocks.join("\n\n");
 }

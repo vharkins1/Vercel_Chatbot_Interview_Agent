@@ -2,17 +2,17 @@
  * Mint the single reusable entry link used by the Qualtrics-first human flow.
  *
  * Unlike scripts/create-invitations.ts (one one-shot token per participant,
- * with the study arm pinned at mint time), this creates ONE multi-use token
- * that pins no arm. Every participant follows the same URL; the server draws a
- * condition at session creation and identity comes from the Qualtrics
- * ResponseID passed as `rid`.
+ * with the study arm pinned at mint time), this creates one reusable token
+ * with no arm pinned. The server draws a random condition at session creation;
+ * identity comes from the Qualtrics StudyID, while `id` carries the SONA
+ * participant identifier.
  *
  * Usage:
  *   pnpm db:create-entry-link --base-url https://<app> [--ttl-days 180] [--label pilot]
  *
  * Paste the printed URL into the PRE-survey's End of Survey element
- * ("Redirect to a URL"). The ${e://Field/ResponseID} placeholder is expanded by
- * Qualtrics at redirect time.
+ * ("Redirect to a URL"). Qualtrics expands the StudyID and id piped-text
+ * placeholders at redirect time.
  */
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -100,7 +100,7 @@ async function main() {
     });
 
     const base = args.baseUrl.replace(/\/+$/, "");
-    const redirect = `${base}/chat?t=${token}&StudyID=\${e://Field/StudyID}`;
+    const redirect = `${base}/chat?t=${token}&StudyID=\${e://Field/StudyID}&id=\${e://Field/id}`;
 
     console.error("Entry link created.");
     console.error(`  jti:        ${jti}`);
@@ -116,7 +116,7 @@ async function main() {
     console.error("");
     console.error("Then, on the POST-survey, declare these Embedded Data");
     console.error("fields ABOVE the first block or Qualtrics will drop them:");
-    console.error("  rid, chat_id, participant_seq, completion_code");
+    console.error("  StudyID, id, chat_id, participant_seq, completion_code");
   } finally {
     await sql.end();
   }

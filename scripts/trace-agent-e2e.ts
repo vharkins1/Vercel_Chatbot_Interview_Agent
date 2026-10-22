@@ -7,7 +7,7 @@
  * that this script makes REAL assertions that THROW on mismatch (the smoke test
  * only printed a "LINKAGE VERIFIED" banner without asserting equality), and it
  * proves the linkage in BOTH directions:
- *   - forward: AgentSession/SurveySubmission/Message_v2 rows agree with each
+ *   - forward: AgentSession/SurveySubmission/ChatLogs rows agree with each
  *     other and with the Qualtrics embedded data, and
  *   - reverse: re-querying Supabase using ONLY the Qualtrics-supplied chat_id
  *     (and separately the unique completion_code) resolves to exactly the same
@@ -44,7 +44,7 @@ const QUALTRICS_DC = process.env.QUALTRICS_DATACENTER;
 const SURVEY_ID = process.env.QUALTRICS_SURVEY_ID_STUDY1;
 
 // A Moltbook-shaped partner model string. The exact value is asserted to round
-// trip through AgentSession.partnerModel and every user-turn Message_v2 row.
+// trip through AgentSession.partnerModel and every user-turn ChatLogs row.
 const PARTNER_MODEL = "moltbook/agent-v1";
 
 if (!POSTGRES_URL) {
@@ -364,7 +364,7 @@ async function cleanup(
   }
 
   console.log("→ Cleaning up local DB rows…");
-  // FK-safe order: SurveyAnswer → SurveySubmission → Message_v2 →
+  // FK-safe order: SurveyAnswer → SurveySubmission → ChatLogs →
   // AgentSession → Chat → Participant → synthetic User → PartnerAgent.
   await sql.begin(async (tx) => {
     const partner = await tx<{ id: string }[]>`
@@ -380,7 +380,7 @@ async function cleanup(
 
     await tx`DELETE FROM "SurveyAnswer" WHERE "chatId" = ANY(${chatIds})`;
     await tx`DELETE FROM "SurveySubmission" WHERE "chatId" = ANY(${chatIds})`;
-    await tx`DELETE FROM "Message_v2" WHERE "chatId" = ANY(${chatIds})`;
+    await tx`DELETE FROM "ChatLogs" WHERE "chatId" = ANY(${chatIds})`;
     await tx`DELETE FROM "AgentSession" WHERE "partnerAgentId" = ${partnerId}`;
     await tx`DELETE FROM "Chat" WHERE "partnerAgentId" = ${partnerId}`;
     await tx`DELETE FROM "Participant" WHERE "partnerAgentId" = ${partnerId}`;
@@ -437,10 +437,10 @@ async function main() {
     const messages = await sql<
       Array<{ role: string; partnerModel: string | null }>
     >`
-      SELECT role, "partnerModel" FROM "Message_v2" WHERE "chatId" = ${chatId}`;
-    assert("Message_v2 rows exist for chatId", messages.length > 0);
+      SELECT role, "partnerModel" FROM "ChatLogs" WHERE "chatId" = ${chatId}`;
+    assert("ChatLogs rows exist for chatId", messages.length > 0);
     const userRows = messages.filter((m) => m.role === "user");
-    assert("at least one user-role Message_v2 row", userRows.length > 0);
+    assert("at least one user-role ChatLogs row", userRows.length > 0);
     assert(
       "a user-role row carries the expected partnerModel",
       userRows.some((m) => m.partnerModel === PARTNER_MODEL)
@@ -453,7 +453,7 @@ async function main() {
       "no mid-session partnerModel swap",
       distinctModels.size === 1 && distinctModels.has(PARTNER_MODEL)
     );
-    console.log("  ✓ AgentSession / SurveySubmission / Message_v2 reads pass");
+    console.log("  ✓ AgentSession / SurveySubmission / ChatLogs reads pass");
 
     // ── Qualtrics side ───────────────────────────────────────────
     console.log("\n→ Qualtrics-side read (getResponse):");

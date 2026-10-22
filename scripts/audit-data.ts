@@ -14,7 +14,7 @@ async function main() {
     const counts = await sql`
       SELECT
         (SELECT COUNT(*) FROM "Chat")           AS chats,
-        (SELECT COUNT(*) FROM "Message_v2")     AS messages,
+        (SELECT COUNT(*) FROM "ChatLogs")       AS messages,
         (SELECT COUNT(*) FROM "AgentSession")   AS agent_sessions,
         (SELECT COUNT(*) FROM "Participant")    AS participants,
         (SELECT COUNT(*) FROM "PartnerAgent")   AS partner_agents,

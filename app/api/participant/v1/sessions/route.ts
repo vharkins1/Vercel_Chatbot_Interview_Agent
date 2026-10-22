@@ -1,11 +1,12 @@
 import { z } from "zod";
 import {
-  getHumanSessionByQualtricsResponseId,
+  getHumanSessionByStudyId,
   getInvitationByJti,
   getMessagesByChatId,
   hasChatWithStartIpHash,
   recordInvitationUse,
   redeemInvitation,
+  updateAgentSession,
 } from "@/lib/db/queries";
 import {
   buildSessionCookie,
@@ -20,6 +21,7 @@ import {
 } from "@/lib/study/conditions";
 import { parseUserAgent } from "@/lib/study/device";
 import { verifyInvitation } from "@/lib/study/invitations";
+import { buildFollowupUrl } from "@/lib/study/qualtrics-followup";
 import { createInterviewSession } from "@/lib/study/session-service";
 import { generateUUID } from "@/lib/utils";
 
@@ -42,13 +44,29 @@ function textFromParts(parts: unknown): string {
     .join("");
 }
 
+function participantVisibleMessages(
+  messages: Awaited<ReturnType<typeof getMessagesByChatId>>
+) {
+  // Human interviews always begin with one server-generated seed turn. Never
+  // return that private instruction to the browser when resuming a session.
+  const visible = messages[0]?.role === "user" ? messages.slice(1) : messages;
+  return visible.map((message) => ({
+    id: message.id,
+    role: message.role,
+    text: textFromParts(message.parts),
+  }));
+}
+
 const bodySchema = z.object({
   invitationToken: z.string().min(1),
   participantExternalId: z.string().min(1).max(200).optional(),
-  // Qualtrics ResponseID of the PRE-interview survey, forwarded by the chat UI
-  // from the `rid` query param on the entry link. Optional so the older
+  // Qualtrics StudyID of the PRE-interview survey, forwarded by the chat UI
+  // from the `StudyID` query param on the entry link. Optional so the older
   // one-shot recruitment links keep working unchanged.
-  qualtricsResponseId: z.string().min(1).max(200).optional(),
+  studyId: z.string().min(1).max(200).optional(),
+  // SONA participant id, forwarded from the pre-survey redirect and carried
+  // unchanged to the post-survey for credit assignment.
+  id: z.string().min(1).max(200).optional(),
 });
 
 export async function POST(request: Request) {
@@ -89,18 +107,51 @@ export async function POST(request: Request) {
   // Idempotency for the reusable entry link. The same URL serves every
   // participant, so a reload or back-button would otherwise start a second
   // interview for the same respondent and split their turns across two
-  // transcripts. Keyed on the Qualtrics ResponseID, which is unique per
+  // transcripts. Keyed on the Qualtrics StudyID, which is unique per
   // pre-survey respondent. Mirrors the agent API's idempotency on
   // (partner, participantExternalId).
-  if (parsed.qualtricsResponseId) {
-    const existing = await getHumanSessionByQualtricsResponseId({
-      qualtricsResponseId: parsed.qualtricsResponseId,
+  if (parsed.studyId) {
+    const existing = await getHumanSessionByStudyId({
+      studyId: parsed.studyId,
     });
     if (existing) {
-      // Completed interviews are terminal: sending them back into the chat
-      // would let a participant append turns after their survey handoff.
+      const effectiveSonaId = existing.sonaId ?? parsed.id ?? null;
+      // Sessions started before the SONA handoff deployed have no stored id.
+      // Capture it on the first resumed request without replacing an id that
+      // was already bound to this interview.
+      if (parsed.id && !existing.sonaId) {
+        await updateAgentSession({ id: existing.id, sonaId: parsed.id });
+      }
+      // Completed interviews remain terminal, but participants must be able to
+      // recover the survey handoff after a reload or a previously bad URL.
       if (existing.completedAt) {
-        return Response.json({ error: "already_completed" }, { status: 409 });
+        const [resumed, priorMessages] = await Promise.all([
+          signParticipantSession({ chatId: existing.chatId, jti: claims.jti }),
+          getMessagesByChatId({ id: existing.chatId }),
+        ]);
+        const followupUrl = buildFollowupUrl({
+          chatId: existing.chatId,
+          seq: existing.seq,
+          completionCode: existing.completionCode,
+          studyId: existing.studyId,
+          id: effectiveSonaId,
+        });
+        return new Response(
+          JSON.stringify({
+            chatId: existing.chatId,
+            resumed: true,
+            completed: true,
+            followupUrl,
+            messages: participantVisibleMessages(priorMessages),
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "set-cookie": buildSessionCookie(resumed.token, resumed.maxAge),
+            },
+          }
+        );
       }
       const [resumed, priorMessages] = await Promise.all([
         signParticipantSession({ chatId: existing.chatId, jti: claims.jti }),
@@ -114,11 +165,7 @@ export async function POST(request: Request) {
         JSON.stringify({
           chatId: existing.chatId,
           resumed: true,
-          messages: priorMessages.map((m) => ({
-            id: m.id,
-            role: m.role,
-            text: textFromParts(m.parts),
-          })),
+          messages: participantVisibleMessages(priorMessages),
         }),
         {
           status: 200,
@@ -171,13 +218,11 @@ export async function POST(request: Request) {
   }
 
   const chatId = generateUUID();
-  // With the entry link the Qualtrics ResponseID *is* the participant's
-  // identity — the token no longer distinguishes anyone. Falling back to a
-  // random id keeps the pre-Qualtrics recruitment links working.
+  // With the entry link the Qualtrics StudyID *is* the participant's identity
+  // — the token no longer distinguishes anyone. Falling back to a random id
+  // keeps the pre-Qualtrics recruitment links working.
   const participantExternalId =
-    parsed.qualtricsResponseId ??
-    parsed.participantExternalId ??
-    generateUUID();
+    parsed.studyId ?? parsed.participantExternalId ?? generateUUID();
 
   let condition: Condition | null = isCondition(stored.condition)
     ? stored.condition
@@ -210,14 +255,13 @@ export async function POST(request: Request) {
   // exposure, not at redirect time, so participants who click through and
   // abandon before starting never consume an arm. Qualtrics is never told
   // which arm was drawn; it is recovered at analysis time by joining
-  // AgentSession on the Qualtrics ResponseID.
+  // AgentSession on the Qualtrics StudyID.
   if (!isCondition(condition)) {
     condition = pickRandomCondition();
   }
 
   const userAgent = request.headers.get("user-agent");
   const parsedUa = parseUserAgent(userAgent);
-
   await createInterviewSession({
     chatId,
     partnerAgentId: null,
@@ -225,7 +269,8 @@ export async function POST(request: Request) {
     condition,
     title: "Participant interview",
     startIpHash: ipHash,
-    qualtricsResponseId: parsed.qualtricsResponseId ?? null,
+    studyId: parsed.studyId ?? null,
+    sonaId: parsed.id ?? null,
     device: userAgent ? { ...parsedUa, userAgent } : null,
   });
 

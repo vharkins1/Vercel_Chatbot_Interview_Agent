@@ -162,6 +162,41 @@
       "when": 1793000900000,
       "tag": "0022_qualtrics_entry_link",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1793000960000,
+      "tag": "0023_lock_down_public_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793001020000,
+      "tag": "0024_sona_id_handoff",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793001080000,
+      "tag": "0025_official_study_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793001140000,
+      "tag": "0026_private_runtime_prompts",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1793001200000,
+      "tag": "0027_private_runtime_prompt_rls",
+      "breakpoints": true
     }
   ]
 }

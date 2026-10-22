@@ -1,6 +1,11 @@
 export type Condition = "A" | "B" | "C" | "DEV";
 
-export const ALL_CONDITIONS: readonly Condition[] = ["A", "B", "C", "DEV"] as const;
+export const ALL_CONDITIONS: readonly Condition[] = [
+  "A",
+  "B",
+  "C",
+  "DEV",
+] as const;
 
 export const STUDY_CONDITIONS: readonly Condition[] = ["A", "B", "C"] as const;
 

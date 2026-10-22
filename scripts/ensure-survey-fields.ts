@@ -20,9 +20,14 @@ const DC = process.env.QUALTRICS_DATACENTER;
 const TOK = process.env.QUALTRICS_API_TOKEN;
 const SID = process.env.QUALTRICS_SURVEY_ID_STUDY1;
 
-// Fields the app sends (see survey + participant complete routes). completion_code
-// is already declared; the other two are what this script ensures.
-const REQUIRED_FIELDS = ["completion_code", "participant_seq", "chat_id"];
+// Fields the app sends through browser handoff and response import.
+const REQUIRED_FIELDS = [
+  "completion_code",
+  "participant_seq",
+  "chat_id",
+  "StudyID",
+  "id",
+];
 
 type EmbeddedField = {
   Description: string;

@@ -60,7 +60,7 @@ const main = async () => {
         m."createdAt"   AS "createdAt",
         m.role          AS role,
         m.parts         AS parts
-      FROM "Message_v2" m
+      FROM "ChatLogs" m
       WHERE m."chatId" = ${conversation.chatId}
       ORDER BY m."createdAt" ASC, m.id ASC
     `) as unknown as TranscriptMessage[];

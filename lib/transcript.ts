@@ -18,9 +18,6 @@ const PACIFIC_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-const HIDDEN_INTERVIEW_SEED =
-  "Please start the interview by greeting the candidate and asking the first question.";
-
 export type TranscriptConversation = {
   chatId: string;
   chatCreatedAt: Date;
@@ -128,12 +125,16 @@ export const prepareConversationTranscript = ({
     ? "Interviewee Agent"
     : "Participant";
   const preparedMessages: PreparedTranscriptMessage[] = [];
+  let skippedHiddenParticipantSeed = false;
 
   for (const message of messages) {
     if (
+      !conversation.partnerAgentId &&
+      !skippedHiddenParticipantSeed &&
       message.role === "user" &&
-      extractTranscriptText(message.parts) === HIDDEN_INTERVIEW_SEED
+      preparedMessages.length === 0
     ) {
+      skippedHiddenParticipantSeed = true;
       continue;
     }
 

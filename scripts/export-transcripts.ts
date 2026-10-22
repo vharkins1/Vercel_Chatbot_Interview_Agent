@@ -138,7 +138,7 @@ async function main() {
           m.role            AS role,
           m.parts           AS parts,
           m."partnerModel"  AS partner_model
-        FROM "Message_v2" m
+        FROM "ChatLogs" m
         WHERE m."chatId" = ${c.chat_id}
         ORDER BY m."createdAt" ASC
       `) as unknown as MsgRow[];

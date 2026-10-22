@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { buildSessionCookie, signParticipantSession } from "@/lib/participant-auth";
+import {
+  buildSessionCookie,
+  signParticipantSession,
+} from "@/lib/participant-auth";
 import { getRequestIp, hashIp } from "@/lib/request-ip";
 import { labelForCondition } from "@/lib/study/conditions";
 import { parseUserAgent } from "@/lib/study/device";
@@ -31,10 +34,13 @@ export async function POST(request: Request) {
     partnerAgentId: null,
     participantExternalId,
     condition: "DEV",
-    overridePromptVersion: parsed.data.devPromptVersion || process.env.OPENAI_A_PROMPT_VERSION || "5",
+    overridePromptVersion:
+      parsed.data.devPromptVersion ||
+      process.env.OPENAI_A_PROMPT_VERSION ||
+      "5",
     title: "Developer Test Session",
     startIpHash: ipHash,
-    qualtricsResponseId: "dev-mode",
+    studyId: "dev-mode",
     device: userAgent ? { ...parsedUa, userAgent } : null,
     overridePromptId: parsed.data.devPromptId,
   });

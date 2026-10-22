@@ -95,7 +95,7 @@ async function main() {
     console.log(`PARTICIPANT: ${reply}`);
     const assistant = await turn(chatId, reply);
     console.log(`ASSISTANT:   ${assistant}\n`);
-    if (looksLikeEnd(assistant)) {
+    if (await looksLikeEnd(assistant)) {
       endedNaturally = true;
       console.log("(end-of-interview phrase detected; stopping.)\n");
       break;

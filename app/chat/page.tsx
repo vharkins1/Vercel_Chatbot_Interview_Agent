@@ -12,11 +12,15 @@ async function ChatBoot({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const tokenRaw = params.t;
   const token = Array.isArray(tokenRaw) ? tokenRaw[0] : tokenRaw;
-  // Qualtrics ResponseID of the pre-interview survey, piped into the entry
-  // link by the pre-survey's End-of-Survey redirect. Absent for the older
-  // one-shot recruitment links, which carry identity in the token itself.
-  const ridRaw = params.StudyID;
-  const rid = Array.isArray(ridRaw) ? ridRaw[0] : ridRaw;
+  // StudyID from the pre-interview survey identifies this Qualtrics response.
+  // Absent for older one-shot recruitment links, which carry identity in the
+  // token itself.
+  const studyIdRaw = params.StudyID;
+  const studyId = Array.isArray(studyIdRaw) ? studyIdRaw[0] : studyIdRaw;
+  // SONA passes its participant identifier into the pre-survey as `id`.
+  // Preserve it independently from StudyID so the post-survey can award credit.
+  const idRaw = params.id;
+  const id = Array.isArray(idRaw) ? idRaw[0] : idRaw;
 
   if (!token) {
     return (
@@ -31,7 +35,11 @@ async function ChatBoot({ searchParams }: { searchParams: SearchParams }) {
   }
 
   return (
-    <ChatClient invitationToken={token} qualtricsResponseId={rid ?? null} />
+    <ChatClient
+      id={id ?? null}
+      invitationToken={token}
+      studyId={studyId ?? null}
+    />
   );
 }
 

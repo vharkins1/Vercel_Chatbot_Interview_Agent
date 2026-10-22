@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { z } from "zod";
 import { db } from "@/lib/db/client";
-import { agentSession, chat, message } from "@/lib/db/schema";
+import { agentSession, chat, chatLog } from "@/lib/db/schema";
 import {
   PARTICIPANT_COOKIE,
   type ParticipantSessionClaims,
@@ -71,14 +71,14 @@ export async function GET(
 
   const messages = await db
     .select({
-      id: message.id,
-      createdAt: message.createdAt,
-      role: message.role,
-      parts: message.parts,
+      id: chatLog.id,
+      createdAt: chatLog.createdAt,
+      role: chatLog.role,
+      parts: chatLog.parts,
     })
-    .from(message)
-    .where(eq(message.chatId, chatId))
-    .orderBy(asc(message.createdAt), asc(message.id));
+    .from(chatLog)
+    .where(eq(chatLog.chatId, chatId))
+    .orderBy(asc(chatLog.createdAt), asc(chatLog.id));
   const conversation = {
     chatId: conversationChat.id,
     chatCreatedAt: conversationChat.createdAt,

@@ -22,9 +22,9 @@ import postgres from "postgres";
 import { invitation } from "../lib/db/schema";
 import { labelForCondition } from "../lib/study/conditions";
 import {
-  CLOSING_QUESTION_TEXT,
   looksLikeEnd,
   MAX_PARTICIPANT_TURNS,
+  matchesClosingQuestion,
   SURVEY_UNLOCK_AFTER_LLM_TURNS,
 } from "../lib/study/interview-end";
 import { generateJti, signInvitation } from "../lib/study/invitations";
@@ -32,14 +32,15 @@ import { generateJti, signInvitation } from "../lib/study/invitations";
 config({ path: ".env.local" });
 
 const BASE_URL = process.env.BASE_URL ?? "http://localhost:3000";
-// `rid` is the Qualtrics ResponseID of the PRE-interview survey, carried
-// through the interview and back so pre ↔ transcript ↔ post all join on one
-// key. Like the others it is silently dropped unless declared in the flow.
+// StudyID joins pre-survey ↔ transcript ↔ post-survey. `id` is the SONA
+// participant identifier used for study credit. Both are silently dropped
+// unless declared in the post-survey flow.
 const REQUIRED_FIELDS = [
   "chat_id",
   "participant_seq",
   "completion_code",
   "StudyID",
+  "id",
 ];
 
 let failures = 0;
@@ -65,6 +66,7 @@ type FlowElement = {
   Type: string;
   FlowID?: string;
   EmbeddedData?: Array<{ Field?: string }>;
+  Options?: { EOSRedirectURL?: string; SurveyTermination?: string };
 };
 
 const qualtricsGet = async <T>(path: string): Promise<T> => {
@@ -85,24 +87,44 @@ const qualtricsGet = async <T>(path: string): Promise<T> => {
 /** The closing question is both the participant's instruction and the end
  *  signal. If someone edits one without the other, interviews silently stop
  *  ending and every participant runs to the turn cap. */
-const checkEndDetection = () => {
+const checkEndDetection = async (sql: postgres.Sql | null) => {
   console.log("\nEnd-of-interview detection");
+  let closingQuestion: string | null = null;
+  if (sql) {
+    const [row] = await sql<{ content: string }[]>`
+      SELECT content FROM private."RuntimePrompt"
+      WHERE key = 'closing_question'
+      LIMIT 1`;
+    closingQuestion = row?.content ?? null;
+  }
   check(
-    "closing question is recognized as an ending",
-    looksLikeEnd(CLOSING_QUESTION_TEXT),
-    `matcher vs "${CLOSING_QUESTION_TEXT}"`
+    "private closing question is configured",
+    Boolean(closingQuestion),
+    closingQuestion ? "loaded from private Supabase storage" : "missing"
   );
-  check(
-    "survives bold markdown and trailing text",
-    looksLikeEnd(`**${CLOSING_QUESTION_TEXT}** https://example.com`),
-    "formatting-tolerant"
-  );
+  if (closingQuestion) {
+    check(
+      "closing question is recognized as an ending",
+      matchesClosingQuestion(closingQuestion, closingQuestion),
+      "private prompt matches the detector"
+    );
+    check(
+      "survives bold markdown and trailing text",
+      matchesClosingQuestion(
+        `**${closingQuestion}** https://example.com`,
+        closingQuestion
+      ),
+      "formatting-tolerant"
+    );
+  }
   const falsePositives = [
     "Let's wrap up this topic and move on.",
     "That concludes this section of questions.",
     "Thanks for sharing that. What happened next?",
   ];
-  const tripped = falsePositives.filter((t) => looksLikeEnd(t));
+  const tripped = falsePositives.filter((text) =>
+    matchesClosingQuestion(text, closingQuestion ?? "")
+  );
   check(
     "ordinary interviewer prose does not end the interview",
     tripped.length === 0,
@@ -152,6 +174,8 @@ const checkFollowupConfig = async (): Promise<string | null> => {
   probe.searchParams.set("chat_id", "00000000-0000-0000-0000-000000000000");
   probe.searchParams.set("participant_seq", "0");
   probe.searchParams.set("completion_code", "verifyhandoff");
+  probe.searchParams.set("StudyID", "verify-handoff-study");
+  probe.searchParams.set("id", "verify-handoff-sona");
   try {
     const res = await fetch(probe.toString(), { redirect: "follow" });
     check(
@@ -215,6 +239,29 @@ const checkEmbeddedData = async (surveyId: string) => {
       ? `position ${embeddedIdx} of ${flow.length}`
       : `at position ${embeddedIdx}, but the first block is at ${firstBlockIdx}; move it to the top of the flow`
   );
+
+  const endSurvey = flow.find((element) => element.Type === "EndSurvey");
+  const redirect = endSurvey?.Options?.EOSRedirectURL;
+  let sonaRedirect: URL | null = null;
+  try {
+    sonaRedirect = redirect ? new URL(redirect) : null;
+  } catch {
+    sonaRedirect = null;
+  }
+  check(
+    "post-survey redirects to UC Davis SONA credit",
+    sonaRedirect?.hostname === "ucdavis.sona-systems.com" &&
+      sonaRedirect.pathname === "/webstudy_credit.aspx",
+    sonaRedirect
+      ? `${sonaRedirect.hostname}${sonaRedirect.pathname}`
+      : "missing"
+  );
+  const surveyCode = sonaRedirect?.searchParams.get("survey_code") ?? "";
+  check(
+    "SONA survey_code uses lowercase embedded id",
+    /\$\{e:\/\/Field\/id\}/i.test(surveyCode),
+    surveyCode ? "mapped from embedded data" : "missing"
+  );
 };
 
 const PARTICIPANT_REPLIES = [
@@ -272,12 +319,18 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
     batchLabel: "verify-handoff",
   });
 
+  const testStudyId = `verify-handoff-study-${jti}`;
+  const testSonaId = `verify-handoff-sona-${jti}`;
   let chatId: string | null = null;
   try {
     const created = await fetch(`${BASE_URL}/api/participant/v1/sessions`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ invitationToken: token }),
+      body: JSON.stringify({
+        invitationToken: token,
+        studyId: testStudyId,
+        id: testSonaId,
+      }),
     });
     if (!created.ok) {
       fail(
@@ -293,13 +346,18 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
     chatId = session.chatId;
     pass("participant session starts", chatId);
 
-    const send = async (text: string): Promise<TurnResponse> => {
+    const send = async (
+      text: string,
+      startInterview = false
+    ): Promise<TurnResponse> => {
       const res = await fetch(
         `${BASE_URL}/api/participant/v1/sessions/${chatId}/turns`,
         {
           method: "POST",
           headers: { "content-type": "application/json", cookie },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify(
+            startInterview ? { kind: "start" } : { kind: "message", text }
+          ),
         }
       );
       if (!res.ok) {
@@ -308,9 +366,7 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
       return (await res.json()) as TurnResponse;
     };
 
-    let body = await send(
-      "Please start the interview by greeting the candidate and asking the first question."
-    );
+    let body = await send("", true);
     let llmCalls = 1;
     while (!body.ended && llmCalls < MAX_PARTICIPANT_TURNS) {
       const reply =
@@ -329,8 +385,10 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
     const finalText = body.assistantMessage.text;
     check(
       "final message asks the closing question",
-      looksLikeEnd(finalText),
-      looksLikeEnd(finalText) ? "matched" : `got: ${finalText.slice(0, 120)}`
+      await looksLikeEnd(finalText),
+      (await looksLikeEnd(finalText))
+        ? "matched"
+        : `got: ${finalText.slice(0, 120)}`
     );
 
     const url = body.followupUrl ?? null;
@@ -340,13 +398,24 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
       url ? "present" : "null (QUALTRICS_FOLLOWUP_URL unset?)"
     );
     if (url) {
+      const parsedUrl = new URL(url);
       for (const field of REQUIRED_FIELDS) {
         check(
           `link carries ${field}`,
-          new URL(url).searchParams.has(field),
-          new URL(url).searchParams.get(field) ?? "missing"
+          parsedUrl.searchParams.has(field),
+          parsedUrl.searchParams.get(field) ?? "missing"
         );
       }
+      check(
+        "link preserves StudyID",
+        parsedUrl.searchParams.get("StudyID") === testStudyId,
+        parsedUrl.searchParams.get("StudyID") ?? "missing"
+      );
+      check(
+        "link preserves SONA id",
+        parsedUrl.searchParams.get("id") === testSonaId,
+        parsedUrl.searchParams.get("id") ?? "missing"
+      );
       check(
         "link is appended to the message the participant sees",
         finalText.includes(url),
@@ -356,13 +425,13 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
 
     // The transcript export must match what was on screen.
     const [stored] = await sql`
-      SELECT parts->0->>'text' AS text FROM "Message_v2"
+      SELECT parts->0->>'text' AS text FROM "ChatLogs"
       WHERE "chatId" = ${chatId} AND role = 'assistant'
       ORDER BY "createdAt" DESC LIMIT 1`;
     check(
       "appended link is persisted to the transcript",
-      Boolean(url) && String(stored?.text ?? "").includes(url ?? " "),
-      "Message_v2 final assistant row"
+      Boolean(url) && String(stored?.text ?? "").includes(url ?? ""),
+      "ChatLogs final assistant row"
     );
 
     // /complete must not mint a different code than the turn route did.
@@ -386,8 +455,8 @@ const runLiveHandoff = async (sql: postgres.Sql) => {
         SELECT "participantId" FROM "Chat" WHERE id = ${chatId}`;
       await sql`DELETE FROM "SurveyAnswer" WHERE "chatId" = ${chatId}`;
       await sql`DELETE FROM "SurveySubmission" WHERE "chatId" = ${chatId}`;
-      await sql`DELETE FROM "ChatQuestion" WHERE "chatId" = ${chatId}`;
-      await sql`DELETE FROM "Message_v2" WHERE "chatId" = ${chatId}`;
+      await sql`DELETE FROM "Question" WHERE "chatId" = ${chatId}`;
+      await sql`DELETE FROM "ChatLogs" WHERE "chatId" = ${chatId}`;
       await sql`DELETE FROM "AgentSession" WHERE "chatId" = ${chatId}`;
       await sql`DELETE FROM "Chat" WHERE id = ${chatId}`;
       if (row?.participantId) {
@@ -418,26 +487,26 @@ const main = async () => {
     `Survey handoff verification${live ? " (config + live interview)" : " (config only)"}`
   );
 
-  checkEndDetection();
-  const surveyId = await checkFollowupConfig();
-  if (surveyId) {
-    await checkEmbeddedData(surveyId);
-  }
+  const databaseUrl = process.env.POSTGRES_URL;
+  const sql = databaseUrl ? postgres(databaseUrl, { max: 1 }) : null;
+  try {
+    await checkEndDetection(sql);
+    const surveyId = await checkFollowupConfig();
+    if (surveyId) {
+      await checkEmbeddedData(surveyId);
+    }
 
-  if (live) {
-    const url = process.env.POSTGRES_URL;
-    if (url) {
-      const sql = postgres(url, { max: 1 });
-      try {
+    if (live) {
+      if (sql) {
         await runLiveHandoff(sql);
-      } finally {
-        await sql.end();
+      } else {
+        fail("POSTGRES_URL is set", "required for --live");
       }
     } else {
-      fail("POSTGRES_URL is set", "required for --live");
+      console.log("\n  (skipping live interview; re-run with --live)");
     }
-  } else {
-    console.log("\n  (skipping live interview; re-run with --live)");
+  } finally {
+    await sql?.end();
   }
 
   console.log(
